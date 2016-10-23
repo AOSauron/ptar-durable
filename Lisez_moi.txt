@@ -1,0 +1,52 @@
+*************************************************************
+********Extracteur d'archives durables et parallèle***********
+*************************************************************
+
+*****************Page de manuel ptar(1)*********************
+
+Format actuel : ptar.1
+(Section 1)
+
+**Pour la lire avec man :**
+Sans manipulations/droits super-utilisateurs au préalable :
+man ./ptar.1.gz
+
+Pour l'afficher en utilisant juste la commande :
+man ptar
+Il faut tout d'abord copier le fichier man.config (qui contient des
+emplacements personnalisés pour les pages man) dans /etc en tant que super-utilisateur:
+sudo cp man.config /etc
+Puis copier le fichier ptar.1.gz dans l'emplacement personnalisé pour les pages man (section 1) :
+sudo install -g 0 -o 0 -m 0644 ptar.1.gz /usr/local/man/man1/
+La commande man ptar devrait afficher la page man du bon programme (et pas celle du programme ptar
+potentiellement préexistant "tar-like program written in perl")
+
+
+**/!\ Pour lire la page avec groff :**
+groff -Tascii -mandoc ptar.1 | less
+(more à la place de less fonctionne aussi)
+/!\ Cependant les caractères spéciaux ne sont pas lus, il faut
+donc utiliser groff-utf8. /!\
+
+
+**Pour la lire avec groff-utf8 :**
+Télécharger groff-utf8 à l'adresse :
+http://www.haible.de/bruno/gnu/groff-utf8.tar.gz
+C'est une archive tar (non compressée à l'inverse de 
+ce que laisse penser son extension !)
+
+Procédure d'installation :
+tar xvf groff-utf8.tar.gz
+cd groff-utf8
+make
+make install PREFIX=/usr/local
+(Veillez à vérifier que votre chemin $PREFIX/bin est contenu
+dans $PATH).
+
+Utilisation :
+groff-utf8 -Tutf8 -mandoc ptar.1 | less
+
+***************************************************************
+
+
+Dernière Màj : 23/10/2016 17:31
