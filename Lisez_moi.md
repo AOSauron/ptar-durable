@@ -19,12 +19,12 @@ Build & execute:
     make
     ./ptar       ( [opts] à venir )
 
-Utilisation
+Utilisation de ptar
 
 	Lister les dossiers et fichiers (et leur taille) d'une archive tar
 
 	    ./ptar
-	    Modifier l'emplacement de l'archive directement dans la variable directory dans main.c puis refaire un make
+	    Modifier l'emplacement de l'archive directement dans la variable directory dans main.c
 	
 	à venir ...
 		
@@ -33,11 +33,11 @@ Utilisation
 	Exemples :
 
 	    ./ptar
-	    (l'exemple test.tar fourni dans le git se présente comme suit :)
+	    L'exemple test.tar fourni dans le git se présente comme suit :
 							Dossier test
-							/                \
+							/          \
 					Dossier test1       Dossier test2
-                  			   /                                    \
+                  			 /                       \
 			Fichier lol.txt (vide, 0 octets)    Fichier lol.lol (non-vide, 38 octets)
 
 	    à venir ...
@@ -55,7 +55,7 @@ Page de manuel ptar(1)
 	   sudo install -g 0 -o 0 -m 0644 ptar.1.gz /usr/local/man/man1/
 	   man ptar
 
-	   (La commande man ptar devrait alors afficher la page man du bon programme 
+	   (La commande `man ptar` devrait alors afficher la page man du bon programme 
 	   et pas celle du programme ptar potentiellement préexistant "tar-like program written in perl")
 
 	Lire la page de manuel avec groff-utf8
@@ -69,11 +69,11 @@ Page de manuel ptar(1)
 	   make install PREFIX=/usr/local
 	   (Veillez à vérifier que votre chemin $PREFIX/bin est contenu dans $PATH).
 	   cd <chemin_dossier_rs2016-Garcia-Zambaux>
-    	   (Si groff-utf8 est déjà installé, passer à:)
+	   (Si groff-utf8 est déjà installé, passer à:)
 	   tar -xvzf ptar.1.gz
 	   groff-utf8 -Tutf8 -mandoc ptar.1 | less
 
 
 Dernière Màj 
 
-	26/10/2016    02:15
+	26/10/2016    02:32
