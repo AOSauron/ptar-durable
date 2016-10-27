@@ -1,4 +1,4 @@
-// Format standard pour les fichiers tar selon la norme ustar POSIX.1
+// Format standard pour les archives tar selon la norme ustar POSIX.1
 struct header_posix_ustar {
                    char name[100];
                    char mode[8];
