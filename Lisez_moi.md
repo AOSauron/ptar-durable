@@ -1,6 +1,6 @@
 #PTAR
 
-Extracteur d'archives durable et parallèle
+Extracteur durable et parallèle d'archives ustar POSIX
 
 Projet de RS TELECOM Nancy 2016-2017
 
@@ -11,58 +11,58 @@ Auteurs
 
 Dépendances
 
-    groff-utf8   (pour un moyen de lecture de la page man pta(1)
+    groff-utf8   (pour un moyen de lecture de la page man ptar(1)
 
 Build & execute:
 
     make
-    ./ptar  [opts]
+    ./ptar  [opts]  [args]
 
 Utilisation de ptar
 
-	Lister les éléments (et leur taille) compris dans une archive tar -Fonctionnel-
+	Lister les éléments contenus dans une archive tar -FONCTIONNEL-
 
 	    ./ptar <chemin/vers/archive>
 	
-	Extraire les éléments d'une archive tar (et listing basique) -Fonctionnel-
+	Extraire les éléments d'une archive tar (et listing basique) -FONCTIONNEL-
 		
 	    ./ptar -x <chemin/vers/archive>
 
-	Listing détaillé des métadonnées des éléments d'une archive tar -Non implémenté-
+	Listing détaillé des métadonnées des éléments d'une archive tar -NON IMPLEMENTE-
 
 	    ./ptar -l <chemin/vers/archive>
 
-	Parallélisation et durabilisation de l'extraction avec NBTHREADS threads -Non implémenté-
+	Parallélisation et durabilisation de l'extraction avec NBTHREADS threads -NON IMPLEMENTE-
 
 	    ./ptar -xp <NBTHREADS> <chemin/vers/archive>
 
-	Décompression d'une archive .tar.gz (compressée avec gzip) -Non implémenté-
+	Décompression d'une archive .tar.gz (compressée avec gzip) -NON IMPLEMENTE-
 
 	   ./ptar -z <chemin/vers/archive>
 
+
 	Exemples :
 
-	    L'exemple test.tar fourni dans le git se présente comme suit :
+	    L'exemple testf.tar fourni dans le git ne contient que des fichiers (dont un vide).
 
-							Dossier test --- lien_symbo1 (lien symbolique lol.lol)
-							/          \
-					Dossier test1       Dossier test2
-                  			 /                       \
-			Fichier lol.txt (vide, 0 octets)    Fichier lol.lol (non-vide, 38 octets)
+	    L'exemple testall.tar fourni dans le git contient des fichiers, des dossiers et un lien symbolique.
 
-	    ./ptar archives_test/test.tar
-	    ./ptar -x archive_test/test.tar
+	    ./ptar archives_test/testf.tar
+	    ./ptar -x archive_test/testf.tar
+	    ./ptar archives_test/testall.tar
+	    ./ptar -x archive_test/testall.tar
 
 	    à venir :
-	    ./ptar -l archive_test/test.tar
-	    ./ptar -xl archive_test/test.tar
-	    ./ptar -xlp 3 archive_test/test.tar
-	    ./ptar -xzlp 4 archive_test/test.tar.gz
-	    ./ptar -zx 4 archive_test/test.tar
-	    ./ptar -z archive_test/test.tar.gz
+	    ./ptar -l archive_test/testall.tar
+	    ./ptar -xl archive_test/testall.tar
+	    ./ptar -xlp 3 archive_test/testall.tar
+	    ./ptar -xzlp 4 archive_test/testall.tar.gz
+	    ./ptar -zx 4 archive_test/testall.tar
+	    ./ptar -z archive_test/testall.tar.gz
 
 		
-	    Utiliser `rm- rf test/` avant chaque test sur l'archive archives_test/test.tar.
+	    Exécuter le script rmtest.sh avant chaque test sur les archives pour nettoyer le dossier courant.
+	    ./rmtest.sh
 	   
 
 Page de manuel ptar(1)
@@ -99,10 +99,11 @@ Page de manuel ptar(1)
 
 Dernière Màj 
 
-	27/10/2016    07:29     version 1.3.0.0 (étape 3 achevée)
+	30/10/2016    19:41     version 1.3.1.0 (étape 3 achevée + adapation tests blancs & corrections)
 
 
 Debug 
 
 	Pour observer le code brute d'une fichier et son affichage
-		hexdump -C test.tar
+		hexdump -C testf.tar
+		hexdump -C testall.tar

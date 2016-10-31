@@ -1,5 +1,5 @@
 //////////////////////////////////////////////////////////   ptar - Extracteur d'archives durable et parallèle  ///////////////////////////////////////////////////////////////////
-///////////////////////////////////////////////////////////////////////   v 1.3.0.0        27/10/2016   //////////////////////////////////////////////////////////////////////////////////////
+///////////////////////////////////////////////////////////////////////   v 1.3.1.0        30/10/2016   //////////////////////////////////////////////////////////////////////////////////////
 
 #include<stdio.h>
 #include<stdlib.h>
@@ -29,12 +29,12 @@ int main(int argc, char *argv[]) {
 	int file;
 	int size;
 	int size_reelle;
-	int cpt; //Compteur de fichier/dossier
+	int cpt; //Compteur de fichier/dossier **inutilisé depuis 1.3**
 
 	cpt=0;
 	size_reelle=0;
-	//Flags des options de ligne de commande.
-	nthreads=0;
+	nthreads=0;   //Nombre des threads à utiliser (seulement si l'option -p est utilisée).
+	//Initialisation des flags des options de ligne de commande.
 	thrd=0;
 	extract=0;
 	listingd=0;
@@ -60,9 +60,9 @@ int main(int argc, char *argv[]) {
 				break;
 			//Durabilité et parallélisation : -p NBTHREADS
 			case 'p' :
-				nthreads=atoi(optarg);
-				//Si le p est mal placé (il optarg sera la lettre suivante), atoi renverra 0, c'était à dire que optarg n'est pas un nombre.
-				//(On considère qu'on ne tolère pas 0 threads ...)
+				nthreads=atoi(optarg); // nthreads <-- NBTHREADS
+				//Si le p est mal placé (il optarg sera la lettre suivante), atoi renverra 0, c'est-à-dire que optarg n'est pas un nombre.
+				//(Et on considère qu'on ne tolère pas 0 threads ...)
 				if (nthreads==0) {
 					printf("Utilisation: %s [-x] [-l] [-z] [-p NBTHREADS] emplacement_archive\n", argv[0]);
 					return -1;
@@ -76,8 +76,8 @@ int main(int argc, char *argv[]) {
 	}
 
 	//Affichage des flags (debugging)
-	printf("**************************************************************************************\n");
-	printf("Falgs  :  extract=%d; listing=%d; decomp=%d; thrd=%d; NTHREADS=%d; optind=%d\n", extract, listingd,decomp ,thrd, nthreads, optind);
+	//printf("**************************************************************************************\n");
+	//printf("Falgs  :  extract=%d; listing=%d; decomp=%d; thrd=%d; NTHREADS=%d; optind=%d\n", extract, listingd,decomp ,thrd, nthreads, optind);
 	
 	//Pour l'option -p, attente d'un argument pour p (et ce sera forcément un int à cause du test dans le case 'p')
 	if (optind >= argc) {
@@ -88,6 +88,7 @@ int main(int argc, char *argv[]) {
 	/*
 	Tester si il y a un argument
 	*/
+
 	//Test de l'existence d'un argument.
 	if (argv[optind]==NULL) {	
 		printf("ptar : erreur pas d'archive tar en argument. Utilisation: %s [-x] emplacement_archive.tar[.gz]\n", argv[0]);
@@ -106,7 +107,7 @@ int main(int argc, char *argv[]) {
 	int cpt_token=0;
 	char *token_courant="";
 	char *token_suivant="";
-	char directory_test[500];
+	char directory_test[200];
 
 	//On récupère l'argument (dans une variable temporaire car strtok agit dessus) et on test si c'est bien une archive .tar ou .tar.gz	
 	strcpy(directory_test, argv[optind]);// strcpy(char dest, char src);
@@ -142,7 +143,7 @@ int main(int argc, char *argv[]) {
 		printf(" Le nom du fichier %s n'est pas au bon format. (.tar[.gz])\n", directory);
 		return -1; 
 	}
-
+	/*
 	//A ce niveau là le nom du fichier devrait être bien formé.
 	printf("**************************************************************************************\n");
 	printf("Début de traitement de l'archive %s\n", directory);
@@ -150,7 +151,7 @@ int main(int argc, char *argv[]) {
 	printf("Les 'Codes retour' s'ils valent -1 montrent une erreur lors de l'opération concernée \n");//DEBUGGING
 	printf("**************************************************************************************\n");
 	printf("Listing basique ...\n");
-
+	*/
 	/*
 	Listing basique (étape 1) et vérification de la validité/existence du fichier
 	*/
@@ -185,10 +186,12 @@ int main(int argc, char *argv[]) {
 			// (1) La fin d'une archive tar se termine par 2 enregistrements d'octets valant 0x0. (voir tar(5))
 			// Donc la string head.name du premier des 2 enregistrement est forcément vide. 
 			// On s'en sert donc pour détecter la fin du fichier (End Of File) et ne pas afficher les 2 enregistrements de 0x0.
-			if (strlen(head.name)==0) {
+			if (strlen(head.name)==0) {	
+				/*
 				printf("**********************************************************************\n");
 				printf("Fin de traitement de l'archive %s (End Of File)\n", argv[optind]); //directory produit un Seg Fault
 				printf("**********************************************************************\n");
+				*/
 				close(file);
 				return 0; 
 			}
@@ -197,18 +200,24 @@ int main(int argc, char *argv[]) {
 			size=strtol(head.size, NULL, 8);
 
 			// (2) Si des données non vides suivent le header (en pratique : si il s'agit d'un header fichier non vide), on passe ces données sans les afficher:
-			// On récupère les données dans un buffer pour l'extraction.                Vérifier le type "0" :  strcmp(head.typeflag,"0")==0
+			// On récupère les données dans un buffer pour l'extraction.             Vérifier le type "0" :  strcmp(head.typeflag,"0")==0
 			if (size > 0) {
-				//Les données sont rangées dans des blocs de 512 octets (on a trouvé ça en utilisant hexdump -C test.tar ...).
-				//On utilise donc une variable temporaire pour stocker la taille totale allouée pour les données.
-				size_reelle=512*((int)(size/512)+1);  //Utiliser (int)variable car c'est des int (et floor est utilisé pour des double)
+				//printf("size modulo 512 :%d\n", size%512);  //DEBUGGING
+				//Les données sont stockées dans des blocs de 512 octets (on a trouvé ça en utilisant hexdump -C testall.tar ...) après le header.
+				//On utilise donc une variable temporaire pour stocker la taille totale allouée pour les données dans l'archive tar.
+				if (size%512==0) {
+					size_reelle=size; // Il faut sortir les cas particuliers multiples de 512. (Sinon il y aura 1 bloc de 512 octets en trop)
+				}
+				else {
+					size_reelle=512*((int)(size/512)+1);  //Utiliser (int)variable car c'est des int (floor est utilisé pour des double renvoyant un double)
+				}
 				
 				//On utilise le buffer data pour le read() des données inutiles pour le listing (mais pas pour l'extraction)
 				data=malloc(size_reelle);
 				
 				//On "lit" avec read les données inutiles qu'on met dans le buffer. On récupère le code de retour de ce read, si jamais il renvoie -1 ou 0 (End Of File).
-				//Ces datas vont servir pour l'extraction des fichiers !!!!!!!!!
-				status=read(file, &data, size_reelle);
+				//Ces datas vont servir pour l'extraction des fichiers !!!!
+				status=read(file, data, size_reelle);
 
 				//Cas d'erreur -1 du read
 				if (status<0) {
@@ -218,15 +227,11 @@ int main(int argc, char *argv[]) {
 				}
 			}
 			// On incrémente le compteur de fichier/dossier
-			cpt++;
+			cpt++; // devenu inutile en vu du format des tests
 
 			// On affiche le numéro du dossier/fichier (cpt), son nom (head.name) et la taille des données suivant ce header en octets (size)
-			if (strcmp(head.typeflag,"0")==0) { // Si c'est un fichier (vide ou non) 
-				printf("Nom de l'élément %d : %s  , taille (octets) : %d, et taille réelle (octets) : %d \n", cpt, head.name, size, size_reelle); 
-			}
-			else { //Tout autre élément (dossier, lien symbolique ...)
-				printf("Nom de l'élément %d : %s\n", cpt, head.name); 
-			}
+			// Pour les tests on affiche simplement les head.name
+			printf("%s\n", head.name); 
 
 			/* 
 			Traitement de l'extraction -x
@@ -234,12 +239,14 @@ int main(int argc, char *argv[]) {
 			
 			if (extract==1) {
 				
+				int mode;
+
+				//Code de retour des open/write/close/symlink/mkdir - DEBUGGING	
 				int etat0;
 				int file0;
 				int write0;
 				int etat2;
 				int etat5;
-				int mode;
 
 				//head.mode = les permissions du fichier en octal, on les convertit en décimal.
 				mode= strtol(head.mode, NULL, 8);
@@ -250,38 +257,46 @@ int main(int argc, char *argv[]) {
 					case '0' :
 						//printf("Permissions : %d\n", mode); // DEBUGGING
 						file0=open(head.name, O_CREAT | O_WRONLY, mode); //O_CREAT pour créer le fichier et O_WRONLY pour pouvoir écrire dedans.
-						printf("Code retour du open : %d\n", file0);
+						//printf("Code retour du open : %d\n", file0);
 						//Voir la partie (2) récupération de données. Utiliser sizeof(data) est plus économe en mémoire que size_reelle (qui est un multiple de 512 octets)
 						if (size > 0) { 
-        						write0=write(file0, &data, size); //Ecriture si seulement le fichier n'est pas vide !
-							printf("Code retour du write (octets écrits) : %d\n", write0);
+        						write0=write(file0, data, size); //Ecriture si seulement le fichier n'est pas vide !
+							//printf("Code retour du write (octets écrits) : %d\n", write0);
+							free(data); //On libère la mémoire allouée pour le données pointées.
 						}
 						etat0=close(file0);
-						printf("Code retour du close : %d\n", etat0);
+						//printf("Code retour du close : %d\n", etat0);
 						break;
 					//Liens symboliques
 					case '2' :
 						etat2=symlink(head.linkname, head.name);
-						printf("Code retour du symlink : %d\n", etat2); 
+						//printf("Code retour du symlink : %d\n", etat2); 
 						break;
 					//Répertoires
 					case '5' :
 						//printf("Permissions : %d\n", mode); // DEBUGGING
 						etat5=mkdir(head.name, mode);
-						printf("Code retour du mkdir : %d\n", etat5);
+						//printf("Code retour du mkdir : %d\n", etat5);
 						break;
 					default:
-						printf("Typeflag = [ %s ]\n", head.typeflag);
+						printf("Elément inconnu par ptar : Typeflag = [ %c ]\n", head.typeflag[0]);
 				}
+		
 			}
 
+			/*
+			Traitement du listing détaillé -l
+			*/
 
+			if (listingd==1) {
+				printf("Listing détaillé à faire !\n");
+			}
 
 		//Puis, tant que le status ne vaut pas 0 (End Of File) ou -1 (erreur), ou que le head.name n'est pas vide (voir (1)), on réitère l'opération (à l'aide d'une boucle do {...} while();).
 		} while (status != 0);
 
 		//Cette partie du code n'est en principe jamais atteinte, puisque l'End Of File ne sera jamais atteint (grâce à (1))<=> status = 0 jamais atteint (read renvoie 0 en fin de fichier).
-		printf("ptar a terminé correctement\n");
+		printf("ptar n'aurait pas dû terminer de cette façon.\n");
 		close(file);
 		return 0;
 	}
