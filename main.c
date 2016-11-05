@@ -1,5 +1,5 @@
 //////////////////////////////////////////////////////////   ptar - Extracteur d'archives durable et parallèle  ///////////////////////////////////////////////////////////////////
-///////////////////////////////////////////////////////////////////////   v 1.3.3.0        05/11/2016   //////////////////////////////////////////////////////////////////////////////////////
+///////////////////////////////////////////////////////////////////////   v 1.4.0.0        05/11/2016   //////////////////////////////////////////////////////////////////////////////////////
 
 #include <stdio.h>
 #include <stdlib.h>
@@ -28,6 +28,7 @@ int main(int argc, char *argv[]) {
 	char *data; //Buffer pour les données suivant le header.
 
 	int extract;
+	int extreturn; //Valeur de retour de extraction()
 	int listingd;
 	int decomp;
 	int opt;
@@ -83,9 +84,7 @@ int main(int argc, char *argv[]) {
 		}
 	}
 
-	//Affichage des flags (debugging)
-	//printf("**************************************************************************************\n");
-	//printf("Falgs  :  extract=%d; listing=%d; decomp=%d; thrd=%d; NTHREADS=%d; optind=%d\n", extract, listingd,decomp ,thrd, nthreads, optind);
+	//printf("Falgs  :  extract=%d; listing=%d; decomp=%d; thrd=%d; NTHREADS=%d; optind=%d\n", extract, listingd,decomp ,thrd, nthreads, optind); - DEBUG
 	
 	//Pour l'option -p, attente d'un argument pour p (et ce sera forcément un int à cause du test dans le case 'p')
 	if (optind >= argc) {
@@ -114,17 +113,7 @@ int main(int argc, char *argv[]) {
 	}
 	
 	/*
-	//A ce niveau là le nom du fichier devrait être bien formé.
-	printf("**************************************************************************************\n");
-	printf("Début de traitement de l'archive %s\n", directory);
-	printf("**************************************************************************************\n");
-	printf("Les 'Codes retour' s'ils valent -1 montrent une erreur lors de l'opération concernée \n");//DEBUGGING
-	printf("**************************************************************************************\n");
-	printf("Listing basique ...\n");
-	*/
-
-	/*
-	Listing basique (étape 1) et vérification de la validité/existence du fichier
+	Listing basique (étape 1) et vérification de la validité/existence du fichier.
 	*/
 
 	//On ouvre l'archive tar avec open() et le flag O_RDONLY (read-only).
@@ -171,11 +160,6 @@ int main(int argc, char *argv[]) {
 			// Donc la string head.name du premier des 2 enregistrement est forcément vide. 
 			// On s'en sert donc pour détecter la fin du fichier (End Of File) et ne pas afficher les 2 enregistrements de 0x0.
 			if (strlen(head.name)==0) {	
-				/*
-				printf("**********************************************************************\n");
-				printf("Fin de traitement de l'archive %s (End Of File)\n", argv[optind]); // /!\ directory produit un Seg Fault apparement
-				printf("**********************************************************************\n");
-				*/
 				close(file);
 				//Fermeture du logfile
 				if (extract==1) {
@@ -223,15 +207,18 @@ int main(int argc, char *argv[]) {
 
 			// On affiche le numéro du dossier/fichier (cpt), son nom (head.name) et la taille des données suivant ce header en octets (size).
 			//printf("Elément %d : %s   taille en octet : %d\n", cpt, head.name, size);
-			// Pour les tests blancs on affiche simplement les head.name
-			printf("%s\n", head.name); 
+			// Pour les tests blancs on affiche simplement les head.name, seulement lors du listing basique.
+			if (listingd==0) {
+				printf("%s\n", head.name);
+			} 
 
 			/* 
 			Traitement de l'extraction -x
 			*/
 			
 			if (extract==1) {
-				extraction(head, data, logfile);
+				extreturn=extraction(head, data, logfile);
+				fprintf(logfile, "Retour d'extraction de l'élément %s : %d\n", head.name, extreturn);
 			}
 
 			/*
@@ -239,7 +226,23 @@ int main(int argc, char *argv[]) {
 			*/
 
 			if (listingd==1) {
-				printf("Listing détaillé à faire !\n");
+				listing(head);
+			}
+
+			/*
+			Traitement de la durabilité et de la parallélisation sur nthreads -p
+			*/
+
+			if (thrd==1) {
+				printf("Parallélisation à faire !\n");
+			}
+
+			/*
+			Traitement de la décompression -z
+			*/
+
+			if (decomp==1) {
+				printf("Décompression à faire !\n");
 			}
 
 		//Puis, tant que le status ne vaut pas 0 (End Of File) ou -1 (erreur), ou que le head.name n'est pas vide (voir (1)), on réitère l'opération (à l'aide d'une boucle do {...} while();).

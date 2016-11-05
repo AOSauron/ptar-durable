@@ -42,6 +42,8 @@ Utilisation de ptar
 
 
 	Exemples :
+		
+	    Les options peuvent être combinées.
 
 	    L'exemple testf.tar fourni dans le git ne contient que des fichiers (dont un vide).
 
@@ -101,7 +103,7 @@ Page de manuel ptar(1)
 
 Dernière Màj 
 
-	05/11/2016    13:21     version 1.3.3.0 (étape 3 + corrections test blancs + séparation du main)
+	05/11/2016    21:19     version 1.4.0.0 (étape 4)
 
 
 Debug 
