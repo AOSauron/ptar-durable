@@ -1,20 +1,28 @@
 //////////////////////////////////////////////////////////   ptar - Extracteur d'archives durable et parallèle  ///////////////////////////////////////////////////////////////////
-///////////////////////////////////////////////////////////////////////   v 1.3.1.0        30/10/2016   //////////////////////////////////////////////////////////////////////////////////////
+///////////////////////////////////////////////////////////////////////   v 1.3.3.0        05/11/2016   //////////////////////////////////////////////////////////////////////////////////////
 
-#include<stdio.h>
-#include<stdlib.h>
-#include<fcntl.h>
-#include<string.h>
-#include<unistd.h>
-#include<sys/stat.h>
-#include<math.h>
+#include <stdio.h>
+#include <stdlib.h>
+#include <fcntl.h>
+#include <string.h>
+#include <unistd.h>
+#include <sys/stat.h>
+#include <math.h>
+#include <time.h>
 
-#include"header.h"
+#include "header.h"
+#include "checkfile.h"
+#include "utils.h"
 
 int main(int argc, char *argv[]) {
 	//Déclarations des variables
 
 	struct header_posix_ustar head;
+
+	time_t secondes;
+	struct tm instant;
+
+	FILE *logfile; //logfile de l'extraction (codes de retour des open, symlink, mkdir, etc)
 	
 	char *directory; //Emplacement de l'archive à traiter.
 	char *data; //Buffer pour les données suivant le header.
@@ -84,65 +92,27 @@ int main(int argc, char *argv[]) {
 		printf("Arguments attendus après options\n");
 		return -1;
 	}
-	
+
 	/*
-	Tester si il y a un argument
+	Tester l'argument (existence et nom bien formé).
 	*/
 
-	//Test de l'existence d'un argument.
-	if (argv[optind]==NULL) {	
-		printf("ptar : erreur pas d'archive tar en argument. Utilisation: %s [-x] emplacement_archive.tar[.gz]\n", argv[0]);
+	if (checkfile(argv[optind])==false) {
+		//Les messages d'erreurs sont gérés dans checkfile.c	
 		return -1;
 	}
-	
-	//Si il y a argument, on le récupère dans une variable pour plus tard.
-	directory=argv[optind];	
 
-	/*
-	Tester si le nom du fichier se termine par .tar (ou .tar.gz). On verifiera l'existence/validité du fichier lors de l'open.
-	*/
+	//Si tout va bien alors on récupère l'argument dans une variable pour le traiter plus loin.
+	directory=argv[optind];
 	
-   	const char *delim = ".";
-   	char *token;
-	int cpt_token=0;
-	char *token_courant="";
-	char *token_suivant="";
-	char directory_test[200];
-
-	//On récupère l'argument (dans une variable temporaire car strtok agit dessus) et on test si c'est bien une archive .tar ou .tar.gz	
-	strcpy(directory_test, argv[optind]);// strcpy(char dest, char src);
-   
-  	//Récupère le premier token (voir strtok(3))
-  	token=strtok(directory_test, delim);
-   
-   	//Récupère les autres token et ne conserve que les 2 derniers à chaque fois.
-   	while( token != NULL ) {
-		cpt_token++;
-		token_courant=token_suivant;
-		token_suivant=token;
-      		token=strtok(NULL, delim);
-   	}
+	//Ouverture du logfile si il y a extraction
+	if (extract==1) {
+		time(&secondes);
+		instant=*localtime(&secondes);
+		logfile=fopen("logfile.txt", "a"); //L'option "a" pour faire un ajout en fin de fichier (et pas l'écraser à chaque fois)
+		fprintf(logfile, "Logfile de l'extraction de l'archive %s le %d/%d à %d:%d:%d\n", directory, instant.tm_mday, instant.tm_mon+1, instant.tm_hour, instant.tm_min, instant.tm_sec);
+	}
 	
-	//Détection de l'extension
-	//Cas du .tar.gz
-	if (strcmp(token_suivant, "gz") == 0) {
-		if ((strcmp(token_courant, "tar") != 0) || cpt_token < 3) {
-			printf(" Le nom du fichier %s n'est pas au bon format. (.tar[.gz])\n", directory);
-			return -1; 
-		}	
-	}
-	//Cas du .tar
-	else if (strcmp(token_suivant, "tar") == 0) {
-		if (cpt_token < 2) {
-			printf(" Le nom du fichier %s n'est pas au bon format. (.tar[.gz])\n", directory);
-			return -1;
-		} 
-	}
-	//Autres cas éventuels:
-	else {
-		printf(" Le nom du fichier %s n'est pas au bon format. (.tar[.gz])\n", directory);
-		return -1; 
-	}
 	/*
 	//A ce niveau là le nom du fichier devrait être bien formé.
 	printf("**************************************************************************************\n");
@@ -152,6 +122,7 @@ int main(int argc, char *argv[]) {
 	printf("**************************************************************************************\n");
 	printf("Listing basique ...\n");
 	*/
+
 	/*
 	Listing basique (étape 1) et vérification de la validité/existence du fichier
 	*/
@@ -165,13 +136,23 @@ int main(int argc, char *argv[]) {
 	if (file<0) {
 		printf("Erreur d'ouverture du fichier, open() retourne : %d. Le fichier n'existe pas ou alors est corrompu.\n", file);
 		//On ferme le fichier avec close() avant chaque return pour une libération propre de la mémoire.
-		close(file);  //On ne gère pas pour l'instant le cas d'erreur -1 du close().
+		close(file);  //On ne gère pas pour l'instant le cas d'erreur -1 du close()
+		if (extract==1) {
+			fclose(logfile); //Aussi le logfile.
+		}
 		return -1;
 	}
+
+	
 
 	//Si l'open() s'est passé correctement on passe à la suite :
 	else {
 		do {
+
+			/*
+			Traitement du listing basique (activé quelque soit l'action)
+			*/
+			
 			//On lit (read) un premier bloc (header) de 512 octets qu'on met dans une variable du type de la structure header_posix_ustar définie dans header.h (norme POSIX.1)
 			//On récupère le code de retour de read() dans la variable status pour le cas d'erreur -1.
 			status=read(file, &head, sizeof(head));  // Utiliser sizeof(head) est plus évolutif qu'une constante égale à 512.
@@ -179,6 +160,9 @@ int main(int argc, char *argv[]) {
 			//Cas d'erreur -1 du read
 			if (status<0) {
 				printf("Erreur dans la lecture du header, read() retourne : %d \n", status);
+				if (extract==1) {
+					fclose(logfile);
+				}
 				close(file);
 				return -1;
 			}
@@ -189,10 +173,15 @@ int main(int argc, char *argv[]) {
 			if (strlen(head.name)==0) {	
 				/*
 				printf("**********************************************************************\n");
-				printf("Fin de traitement de l'archive %s (End Of File)\n", argv[optind]); //directory produit un Seg Fault
+				printf("Fin de traitement de l'archive %s (End Of File)\n", argv[optind]); // /!\ directory produit un Seg Fault apparement
 				printf("**********************************************************************\n");
 				*/
 				close(file);
+				//Fermeture du logfile
+				if (extract==1) {
+					fputs("Fin d'extraction\n \n", logfile);
+					fclose(logfile);
+				}
 				return 0; 
 			}
 
@@ -222,15 +211,19 @@ int main(int argc, char *argv[]) {
 				//Cas d'erreur -1 du read
 				if (status<0) {
 					printf("Erreur dans la lecture du header, read() retourne : %d\n", status);
+					if (extract==1) {
+						fclose(logfile);
+					}
 					close(file);
 					return -1;
 				}
 			}
 			// On incrémente le compteur de fichier/dossier
-			cpt++; // devenu inutile en vu du format des tests
+			cpt++; // ---- devenu inutile en vu du format des tests
 
-			// On affiche le numéro du dossier/fichier (cpt), son nom (head.name) et la taille des données suivant ce header en octets (size)
-			// Pour les tests on affiche simplement les head.name
+			// On affiche le numéro du dossier/fichier (cpt), son nom (head.name) et la taille des données suivant ce header en octets (size).
+			//printf("Elément %d : %s   taille en octet : %d\n", cpt, head.name, size);
+			// Pour les tests blancs on affiche simplement les head.name
 			printf("%s\n", head.name); 
 
 			/* 
@@ -238,50 +231,7 @@ int main(int argc, char *argv[]) {
 			*/
 			
 			if (extract==1) {
-				
-				int mode;
-
-				//Code de retour des open/write/close/symlink/mkdir - DEBUGGING	
-				int etat0;
-				int file0;
-				int write0;
-				int etat2;
-				int etat5;
-
-				//head.mode = les permissions du fichier en octal, on les convertit en décimal.
-				mode= strtol(head.mode, NULL, 8);
-
-				//Séléction du type d'élément et actions. Les printf aident au débugging. 
-				switch (head.typeflag[0]) {
-					//Fichiers réguliers
-					case '0' :
-						//printf("Permissions : %d\n", mode); // DEBUGGING
-						file0=open(head.name, O_CREAT | O_WRONLY, mode); //O_CREAT pour créer le fichier et O_WRONLY pour pouvoir écrire dedans.
-						//printf("Code retour du open : %d\n", file0);
-						//Voir la partie (2) récupération de données. Utiliser sizeof(data) est plus économe en mémoire que size_reelle (qui est un multiple de 512 octets)
-						if (size > 0) { 
-        						write0=write(file0, data, size); //Ecriture si seulement le fichier n'est pas vide !
-							//printf("Code retour du write (octets écrits) : %d\n", write0);
-							free(data); //On libère la mémoire allouée pour le données pointées.
-						}
-						etat0=close(file0);
-						//printf("Code retour du close : %d\n", etat0);
-						break;
-					//Liens symboliques
-					case '2' :
-						etat2=symlink(head.linkname, head.name);
-						//printf("Code retour du symlink : %d\n", etat2); 
-						break;
-					//Répertoires
-					case '5' :
-						//printf("Permissions : %d\n", mode); // DEBUGGING
-						etat5=mkdir(head.name, mode);
-						//printf("Code retour du mkdir : %d\n", etat5);
-						break;
-					default:
-						printf("Elément inconnu par ptar : Typeflag = [ %c ]\n", head.typeflag[0]);
-				}
-		
+				extraction(head, data, logfile);
 			}
 
 			/*
@@ -296,8 +246,11 @@ int main(int argc, char *argv[]) {
 		} while (status != 0);
 
 		//Cette partie du code n'est en principe jamais atteinte, puisque l'End Of File ne sera jamais atteint (grâce à (1))<=> status = 0 jamais atteint (read renvoie 0 en fin de fichier).
-		printf("ptar n'aurait pas dû terminer de cette façon.\n");
+		printf("ptar n'aurait pas dû terminer de cette façon. (%s n'est probablement pas une véritable archive tar)\n", directory);
 		close(file);
+		if (extract==1) {
+			fclose(logfile);
+		}
 		return 0;
 	}
 }

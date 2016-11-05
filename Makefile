@@ -1,13 +1,21 @@
-CC = gcc -W -Wall -Wno-deprecated-declarations
-OBJECTS = main.o
+#-Wno-deprecated-declarations
+CC = gcc
+CFLAGS = -Wall -Wextra
+OBJECTS = main.o checkfile.o utils.o
 
 all: ptar
 
 ptar: $(OBJECTS)
 	$(CC) -o $@ $(OBJECTS)
 
-main.o: main.c header.h
-	$(CC) -c $<
+main.o: main.c header.h checkfile.h utils.h
+	$(CC) $(CFLAGS) -c $<
+
+checkfile.o: checkfile.c
+	$(CC) $(CFLAGS) -c $<
+
+utils.o: utils.c header.h
+	$(CC) $(CFLAGS) -c $<
 
 clean:
 	rm -rf *.o

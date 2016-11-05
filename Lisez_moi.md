@@ -11,7 +11,7 @@ Auteurs
 
 Dépendances
 
-    groff-utf8   (pour un moyen de lecture de la page man ptar(1)
+    groff-utf8   (pour un des moyens de lecture de la page man ptar(1)
 
 Build & execute:
 
@@ -46,6 +46,8 @@ Utilisation de ptar
 	    L'exemple testf.tar fourni dans le git ne contient que des fichiers (dont un vide).
 
 	    L'exemple testall.tar fourni dans le git contient des fichiers, des dossiers et un lien symbolique.
+
+	    L'exemple testfalsearch.tar fourni dans le git n'est pas une archive mais un fichier avec l'extension .tar.
 
 	    ./ptar archives_test/testf.tar
 	    ./ptar -x archive_test/testf.tar
@@ -99,11 +101,14 @@ Page de manuel ptar(1)
 
 Dernière Màj 
 
-	30/10/2016    19:41     version 1.3.1.0 (étape 3 achevée + adapation tests blancs & corrections)
+	05/11/2016    13:21     version 1.3.3.0 (étape 3 + corrections test blancs + séparation du main)
 
 
 Debug 
 
 	Pour observer le code brute d'une fichier et son affichage
+		hexdump -C testfalsearch.tar
 		hexdump -C testf.tar
 		hexdump -C testall.tar
+
+	Le fichier logfile.txt généré lors de l'extraction contient les codes de retours des fonctions utilisées pendant l'extraction.
