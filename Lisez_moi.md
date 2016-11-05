@@ -55,17 +55,19 @@ Utilisation de ptar
 	    ./ptar -x archive_test/testf.tar
 	    ./ptar archives_test/testall.tar
 	    ./ptar -x archive_test/testall.tar
-
-	    à venir :
 	    ./ptar -l archive_test/testall.tar
 	    ./ptar -xl archive_test/testall.tar
+	    ./ptar -l archive_test/testf.tar
+	    ./ptar -xl archive_test/testf.tar
+
+	    à venir :
 	    ./ptar -xlp 3 archive_test/testall.tar
 	    ./ptar -xzlp 4 archive_test/testall.tar.gz
 	    ./ptar -zx 4 archive_test/testall.tar
 	    ./ptar -z archive_test/testall.tar.gz
 
 		
-	    Exécuter le script rmtest.sh avant chaque test sur les archives pour nettoyer le dossier courant.
+	    Exécuter le script rmtest.sh avant chaque test sur les archives pour nettoyer le dossier courant (enlève également logfile.txt).
 	    ./rmtest.sh
 	   
 

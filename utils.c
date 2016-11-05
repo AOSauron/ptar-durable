@@ -19,6 +19,7 @@ Correspondantes aux options suivantes :
 #include <sys/stat.h>
 #include <string.h>
 #include <time.h>
+#include <utime.h>
 
 #include "header.h"
 
@@ -29,21 +30,31 @@ Traite l'extraction des éléments (regular files, directory, symbolic links)
 
 int extraction(struct header_posix_ustar head, char *data, FILE *logfile) {
 
+	struct utimbuf tm;
+	
 	int mode;
 	int size;
 	int uid;
 	int gid;
+	int mtime;
 
-	//Code de retour des open/write/close/symlink/mkdir/setuid/setgid - A lire dans logfile.txt		
-	int etat0;
-	int file0;
-	int write0;
-	int etat2;
-	int etat5;
+	//Code de retour des open/write/close/symlink/mkdir/setuid/setgid/utime - A lire dans logfile.txt		
+	int etat;
+	int file;
+	int writ;
 	int etatuid;
 	int etatgid;
+	int sync;
+	int utim;
 
-	//Récupération du uid et gid convertit depuis l'octal
+	//Récupération du mtime en secondes depuis l'Epoch. (voir tar(5))
+	mtime=strtol(head.mtime, NULL, 8);
+
+	//On set les champs de la struct utime avec la valeur mtime (date de modif).
+	tm.actime=mtime; //La date d'accès est supposée être la même que la date de modif.
+	tm.modtime=mtime;
+
+	//Récupération du uid et gid convertit depuis l'octal en décimal.
 	uid=strtol(head.uid, NULL, 8);
 	gid=strtol(head.gid, NULL, 8);
 
@@ -51,46 +62,54 @@ int extraction(struct header_posix_ustar head, char *data, FILE *logfile) {
 	etatuid=setuid(uid);
 	etatgid=setgid(gid);
 
-	//Récupération de la taille (comme dans le main)
+	//Récupération de la taille (comme dans le main).
 	size=strtol(head.size, NULL, 8);
 
-	//head.mode = les permissions du fichier en octal, on les convertit en décimal.
+	//Récupération des permissions du fichier en octal, converties en décimal.
 	mode= strtol(head.mode, NULL, 8);
 
-	//Séléction du type d'élément et actions. Les printf aident au débugging. 
+	//Séléction du type d'élément et actions.
 	switch (head.typeflag[0]) {
 		//Fichiers réguliers
 		case '0' :
 			fprintf(logfile, "[Fichier %s] Code retour du setuid : %d et du setgid : %d\n", head.name, etatuid, etatgid);
-			file0=open(head.name, O_CREAT | O_WRONLY, mode); //O_CREAT pour créer le fichier et O_WRONLY pour pouvoir écrire dedans.
-			fprintf(logfile, "[Fichier %s] Code retour du open : %d\n", head.name, file0);
+			file=open(head.name, O_CREAT | O_WRONLY, mode); //O_CREAT pour créer le fichier et O_WRONLY pour pouvoir écrire dedans.
+			fprintf(logfile, "[Fichier %s] Code retour du open : %d\n", head.name, file);
 			//Voir la partie (2)du main: récupération de données. Il faut utiliser size et pas size_reelle cette fois-ci
 			if (size > 0) {  //Ecriture si seulement le fichier n'est pas vide !
-      				write0=write(file0, data, size);
-				fprintf(logfile, "[Fichier %s] Code retour du write : %d\n", head.name, write0);
+      				writ=write(file, data, size);
+				sync=fsync(file);
+				fprintf(logfile, "[Fichier %s] Code retour du write : %d\n", head.name, writ);
+				fprintf(logfile, "[Fichier %s] Code retour du fsync : %d\n", head.name, sync);
 				free(data); //On libère la mémoire allouée pour le données pointées.
 			}
-			etat0=close(file0);
-			fprintf(logfile, "[Fichier %s] Code retour du close : %d\n", head.name, etat0);
+			etat=close(file);
+			utim=utime(head.name, &tm); //Une fois le fichier créer complétement, on configure son modtime (et actime).
+			fprintf(logfile, "[Fichier %s] Code retour du close : %d\n", head.name, etat);
+			fprintf(logfile, "[Fichier %s] Code retour du utime : %d\n", head.name, utim);
 			break;
 		//Liens symboliques
 		case '2' :
 			fprintf(logfile, "[Lien symbolique %s] Code retour du setuid : %d et du setgid : %d\n", head.name, etatuid, etatgid);
-			etat2=symlink(head.linkname, head.name);
-			fprintf(logfile, "[Lien symbolique %s] Code retour du symlink : %d\n", head.name, etat2);
+			etat=symlink(head.linkname, head.name);
+			utim=utime(head.name, &tm);
+			fprintf(logfile, "[Lien symbolique %s] Code retour du symlink : %d\n", head.name, etat);
+			fprintf(logfile, "[Lien symbolique %s] Code retour du utime : %d\n", head.name, utim);
 			break;
 		//Répertoires
 		case '5' :
 			fprintf(logfile, "[Dossier %s] Code retour du setuid : %d et du setgid : %d\n", head.name, etatuid, etatgid);
-			etat5=mkdir(head.name, mode);
-			fprintf(logfile, "[Dossier %s] Code retour du mkdir : %d\n", head.name, etat5);
+			etat=mkdir(head.name, mode);
+			utim=utime(head.name, &tm);
+			fprintf(logfile, "[Dossier %s] Code retour du mkdir : %d\n", head.name, etat);
+			fprintf(logfile, "[Dossier %s] Code retour du utime : %d\n", head.name, utim);
 			break;
 		default:
 			printf("Elément inconnu par ptar : Typeflag = [%c]\n", head.typeflag[0]);
 	}
 
 	//Code de retour de extraction (évolutif, rajouter éventuellement des cas de return -1)
-	if (etat0<0 || etat2<0 || etat5<0 || file0<0 || write0<0 || etatuid<0 || etatgid<0) {
+	if (etat<0  || file<0 || writ<0 || etatuid<0 || etatgid<0 || sync<0 || utim<0) {
 		return -1;
 	}
 	else return 0;

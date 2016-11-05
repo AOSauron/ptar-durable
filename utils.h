@@ -15,7 +15,7 @@ Correspondantes aux options suivantes :
 
 /*
 Pratique l'extraction de l'élément correspondant au header passé en paramètre, en utilisant les données si c'est un fichier.
-Ecrit les codes de retour des open/close/write/symlink/mkdir/setuid/setgid dans un logfile
+Ecrit les codes de retour des open/close/write/symlink/mkdir/setuid/setgid/utime/fsync dans un logfile
 Retourne 0 si tout s'est bien passé, -1 sinon.
 */
 int extraction(struct header_posix_ustar head, char *data, FILE *logfile);
