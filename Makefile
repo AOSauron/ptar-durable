@@ -1,4 +1,3 @@
-#-Wno-deprecated-declarations
 CC = gcc
 CFLAGS = -Wall -Wextra
 OBJECTS = main.o checkfile.o utils.o
@@ -6,7 +5,7 @@ OBJECTS = main.o checkfile.o utils.o
 all: ptar
 
 ptar: $(OBJECTS)
-	$(CC) -o $@ $(OBJECTS)
+	$(CC) -o $@ $(OBJECTS) -ldl
 
 main.o: main.c header.h checkfile.h utils.h
 	$(CC) $(CFLAGS) -c $<

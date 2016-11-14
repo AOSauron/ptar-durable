@@ -28,7 +28,7 @@ Utilisation de ptar
 		
 	    ./ptar -x <chemin/vers/archive>
 
-	Listing détaillé des métadonnées des éléments d'une archive tar -NON IMPLEMENTE-
+	Listing détaillé des métadonnées des éléments d'une archive tar -FONCTIONNEL-
 
 	    ./ptar -l <chemin/vers/archive>
 
@@ -39,6 +39,10 @@ Utilisation de ptar
 	Décompression d'une archive .tar.gz (compressée avec gzip) -NON IMPLEMENTE-
 
 	   ./ptar -z <chemin/vers/archive>
+
+	Générer un logfile (pour extraction) de divers codes retours, pour développeurs -FONCTIONNEL-
+
+	   ./ptar -e <chemin/vers/archive>
 
 
 	Exemples :
@@ -51,14 +55,14 @@ Utilisation de ptar
 
 	    L'exemple testfalsearch.tar fourni dans le git n'est pas une archive mais un fichier avec l'extension .tar.
 
-	    ./ptar archives_test/testf.tar
-	    ./ptar -x archive_test/testf.tar
+	    Les exemples testf.tar.gz et testall.tar.gz sont les mêmes mais compressés au format gzip.
+
 	    ./ptar archives_test/testall.tar
 	    ./ptar -x archive_test/testall.tar
 	    ./ptar -l archive_test/testall.tar
 	    ./ptar -xl archive_test/testall.tar
-	    ./ptar -l archive_test/testf.tar
-	    ./ptar -xl archive_test/testf.tar
+	    ./ptar -xe archive_test/testall.tar
+	    ./ptar -xle archive_test/testall.tar
 
 	    à venir :
 	    ./ptar -xlp 3 archive_test/testall.tar
@@ -105,7 +109,7 @@ Page de manuel ptar(1)
 
 Dernière Màj 
 
-	05/11/2016    21:19     version 1.4.0.0 (étape 4)
+	14/11/2016    03:08     version 1.4.2.0 (étape 4 corrigée - tests blancs)
 
 
 Debug 
@@ -115,4 +119,6 @@ Debug
 		hexdump -C testf.tar
 		hexdump -C testall.tar
 
-	Le fichier logfile.txt généré lors de l'extraction contient les codes de retours des fonctions utilisées pendant l'extraction.
+	Le fichier logfile.txt généré lors de l'extraction si l'option -e est spécifiée contient les codes de retours des fonctions utilisées pendant l'extraction.
+	Générer un logfile lors de l'extraction d'une archive :
+		./ptar -xe archive_test/testall.tar

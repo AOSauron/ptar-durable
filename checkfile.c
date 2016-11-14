@@ -14,7 +14,7 @@ lors du premier open() dans la boucle principale du main.
 #include <string.h>
 #include <stdbool.h>
 
-bool checkfile(char *file) {
+bool checkfile(char *file, int decomp) {
 
 	int cpt_token;
    	const char *delim;
@@ -52,7 +52,11 @@ bool checkfile(char *file) {
 	//Cas du .tar.gz
 	if (strcmp(token_suivant, "gz") == 0) {   //Voir strcmp(3)
 		if ((strcmp(token_courant, "tar") == 0) || cpt_token > 2) {
-			return true; 
+			if (decomp==0) { //Vérification du flag de décompression
+				printf("Séléctionnez l'option -z pour décompresser les fichiers au format .tar.gz avant tout autre opération\n");
+				return false;
+			}
+			else return true; 
 		}
 		else {
 			printf(" Le nom du fichier %s n'est pas au bon format. (.tar[.gz])\n", file);
@@ -62,7 +66,11 @@ bool checkfile(char *file) {
 	//Cas du .tar
 	else if (strcmp(token_suivant, "tar") == 0) {
 		if (cpt_token >= 2) {
-			return true;
+			if (decomp==1) { //Vérification du flag de décompression
+				printf("L'option -z s'utilise pour décompresser les fichiers au format .tar.gz\n");
+				return false;
+			}
+			else return true; 
 		}
 		else {
 			printf(" Le nom du fichier %s n'est pas au bon format. (.tar[.gz])\n", file);
