@@ -14,19 +14,25 @@ lors du premier open() dans la boucle principale du main.
 #include <string.h>
 #include <stdbool.h>
 
-bool checkfile(char *file, int decomp) {
+#include "header.h"
+#include "utils.h"
 
+bool checkfile(char *file, int decomp, int extract, int listingd, int log, FILE *logfile) {
+
+	bool isonlygz;
 	int cpt_token;
    	const char *delim;
    	char *token;
 	char *token_courant;
 	char *token_suivant;
+	char filenamegz[100];
 	char directory_test[200];
 
 	cpt_token=0; //Compteur de token, ici compteur de mots séparés par des "." dans le nom
 	delim=".";
 	token_courant="";
 	token_suivant="";
+	isonlygz=false;
 
 	//Test de l'existence d'un argument.
 	if (file==NULL) {	
@@ -39,27 +45,39 @@ bool checkfile(char *file, int decomp) {
    
   	//Récupère le premier token (voir strtok(3))
   	token=strtok(directory_test, delim);
-   
-   	//Récupère les autres token et ne conserve que les 2 derniers à chaque fois.
-   	while( token != NULL ) {
+	
+	//Initialisation du filenamegz pour le cas du fichier non archivé mais compressé.
+	strcpy(filenamegz, "");
+
+   	//Récupère les autres token et ne conserve que les 2 derniers à chaque fois. On récupère le nom sans l'extension .gz également.
+   	do {
 		cpt_token++;
 		token_courant=token_suivant;
 		token_suivant=token;
       		token=strtok(NULL, delim);
-   	}
+		strcat(filenamegz, token_courant);
+		if (strcmp(token_courant,"")!=0 && strcmp(token_suivant,"gz")!=0) strcat(filenamegz, delim);
+   	} while (token != NULL);
 
 	//Détection de l'extension
-	//Cas du .tar.gz
+	//Cas du .tar.gz ou .gz
 	if (strcmp(token_suivant, "gz") == 0) {   //Voir strcmp(3)
-		if ((strcmp(token_courant, "tar") == 0) || cpt_token > 2) {
+		if ((strcmp(token_courant, "tar") == 0) && cpt_token > 2) {
 			if (decomp==0) { //Vérification du flag de décompression
 				printf("Séléctionnez l'option -z pour décompresser les fichiers au format .tar.gz avant tout autre opération\n");
 				return false;
 			}
-			else return true; 
+			else return true;
+		}
+		else if (extract==0 && listingd==0) { //Cas spécial .gz pur.
+			isonlygz=true;
+			printf("Le nom du fichier %s ne semble pas être une archive .tar ou .tar.gz. Tentative de décompression...\n", file);
+			//Appel au module optionnel de dézippage.
+			decompress(file, logfile, log, extract, isonlygz, filenamegz);
+			return false;
 		}
 		else {
-			printf(" Le nom du fichier %s n'est pas au bon format. (.tar[.gz])\n", file);
+			printf(" Le nom du fichier %s n'est pas au bon format. ([.tar].gz) ou n'utilisez que -z pour un fichier .gz pur.\n", file);
 			return false;
 		}
 	}
@@ -67,7 +85,7 @@ bool checkfile(char *file, int decomp) {
 	else if (strcmp(token_suivant, "tar") == 0) {
 		if (cpt_token >= 2) {
 			if (decomp==1) { //Vérification du flag de décompression
-				printf("L'option -z s'utilise pour décompresser les fichiers au format .tar.gz\n");
+				printf("L'option -z s'utilise pour décompresser les fichiers au format [.tar].gz\n");
 				return false;
 			}
 			else return true; 

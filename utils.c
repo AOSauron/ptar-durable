@@ -9,7 +9,7 @@ Correspondantes aux options suivantes :
 -l : Listing détaillé.
 -z : Décompression gzip avec la bibliothèque zlib.
 -p NBTHREADS : (forcément couplée avec -x au moins) Durabilité et parallélisation de l'opération avec un nombre de threads choisi.
--e : Ecriture d'un logfile.txt. Seulement compatible avec l'extraction (-x) pour le moment.
+-e : Ecriture d'un logfile.txt. Seulement compatible avec l'extraction (-x) et la décompression (-z) pour le moment.
 
 */
 
@@ -22,15 +22,16 @@ Correspondantes aux options suivantes :
 #include <time.h>
 #include <sys/time.h>
 #include <dlfcn.h>
+#include <stdbool.h>
 
 #include "header.h"
-
+#include "zlib/zlib.h"
 
 /*
 Traite l'extraction des éléments (regular files, directory, symbolic links)
 */
 
-int extraction(struct header_posix_ustar head, char *data, FILE *logfile, int log) {
+int extraction(struct header_posix_ustar head, char *name, char *data, FILE *logfile, int log) {
 
 	struct timeval tv[2];
 	
@@ -83,7 +84,12 @@ int extraction(struct header_posix_ustar head, char *data, FILE *logfile, int lo
 		//Fichiers réguliers
 		case '0' :
 			if (log==1) fprintf(logfile, "[Fichier %s] Code retour du setuid : %d et du setgid : %d\n", head.name, etatuid, etatgid);
-			file=open(head.name, O_CREAT | O_WRONLY, mode); //O_CREAT pour créer le fichier et O_WRONLY pour pouvoir écrire dedans.
+			if (name==NULL) {
+				file=open(head.name, O_CREAT | O_WRONLY, mode); //O_CREAT pour créer le fichier et O_WRONLY pour pouvoir écrire dedans.
+			}
+			else {
+				file=open(name, O_CREAT | O_WRONLY, mode); //Permet la personnalisation du nom de fichier (voir decompression)
+			}
 			if (log==1) fprintf(logfile, "[Fichier %s] Code retour du open : %d\n", head.name, file);
 			//Voir la partie (2)du main: récupération de données. Il faut utiliser size et pas size_reelle cette fois-ci
 			if (size > 0) {  //Ecriture si seulement le fichier n'est pas vide !
@@ -189,40 +195,126 @@ int listing(struct header_posix_ustar head) {
 Traite la décompression de l'archive .tar.gz avec zlib
 */
 
-int decompress(char *directory) {
+char *decompress(char *directory, FILE *logfile, int log, int extract, bool isonlygz, char *filenamegz) {
+
 	void *handle;
 	char *error;
-	
-	//gzFile file;
-	//int nbOct;
+	char *erroropen;
+	char *errorread;
+	char *errorwrite;
+	char *errorclose;
+	char *data;
+	char *filename;
+	gzFile file;
+
+	struct header_posix_ustar head;
+
+	gzFile (*gzopen)();
+	int (*gzread)();
+	int (*gzwrite)(); //à utiliser plus tard pour la compression. (hors consignes)
+	int (*gzclose)();
+	int status;
+	int stat;
+	int etat;
+	long size;
+
+	if (log==1) fprintf(logfile, "Debut de la decompression de l'archive %s\n", directory);
 
 	//Chargement de la bibliothèque zlib avec dlopen.
-	handle=dlopen("libz.so", RTLD_LAZY);
+	handle=dlopen("./zlib/libz.so", RTLD_NOW);
 
 	//Gestion du cas ou la bibliothèque ne charge pas.
 	if (!handle) {
-		printf("Erreur dans le chargement de zlib : dlerror() = %s\n", dlerror());
-		return -1;
+		error=dlerror();
+		printf("Erreur dans le chargement de zlib : dlerror() = %s\n", error);
+		if (log==1) fprintf(logfile, "[Archive %s] Code retour du open : %s\n", directory, error);
+		exit(EXIT_FAILURE);
 	}
 	
-	//On nettoie les erreurs potentielles.
-	dlerror();
+	//On récupère les fonctions utiles à la décompression avec dlsym
+	gzopen=dlsym(handle, "gzopen");
+	erroropen=dlerror();
+	if (log==1) fprintf(logfile, "[Archive %s] Code retour du dlsym(gzopen) : %s\n", directory, erroropen);
+	gzread=dlsym(handle, "gzread");
+	errorread=dlerror();
+	if (log==1) fprintf(logfile, "[Archive %s] Code retour du dlsym(gzread) : %s\n", directory, errorread);
+	gzwrite=dlsym(handle, "gzwrite");
+	errorwrite=dlerror();
+	if (log==1) fprintf(logfile, "[Archive %s] Code retour du dlsym(gzwrite) : %s\n", directory, errorwrite);
+	gzclose=dlsym(handle, "gzclose");
+	errorclose=dlerror();
+	if (log==1) fprintf(logfile, "[Archive %s] Code retour du dlsym(gzclose) : %s\n", directory, errorclose);
 
-	//Autres cas éventuels d'erreurs.
-	if ((error=dlerror())!=NULL) {
-		printf("Erreur détectée par dlerror() : %s\n", error);
-		return -1;
+	//Cas d'erreur des dlsym
+	if (erroropen!=NULL || errorread!=NULL || errorwrite!=NULL || errorclose!=NULL) {
+		printf("Erreur detectee par dlerror() : %s %s %s %s\n", erroropen, errorread, errorwrite, errorclose);
+		exit(EXIT_FAILURE);
 	}
-/*
-	//open de l'archive avec la bibliothèque zlib
-	file=gzopen(directory,"rb");
 
-	if (file==NULL) return -1;
-
-	//read de l'archive avec la bibliothèque zlib
-	gzread(file, *data, sizeof(unsigned));
+	//Open de l'archive avec la bibliothèque zlib
+	file=(*gzopen)(directory,"rb");
 	
-*/
-	return 0;
+	//Cas où l'open échoue.
+	if (file==NULL) {
+		if (log==1) fprintf(logfile, "[Archive %s] Echec de l'ouverture avec gzopen : code retour = NULL\n", directory);
+		exit(EXIT_FAILURE);
+	}
+
+	/* OPTIONNEL et NON NECESSAIRE. Semi-fonctionnel, developpement inutile pour le projet. */
+	//Cas de l'archive .gz (et pas .tar.gz) : écriture directe.
+	if (isonlygz==true) {
+		status=open(filenamegz, O_CREAT | O_WRONLY, S_IRWXU); //Il faudrait récupérer les permissions du fichier.
+		if (log==1) fprintf(logfile, "[Archive %s] Code retour du open : %d\n", directory, status);
+		data=malloc(1);
+		while ((stat=(*gzread)(file, data, 1))!=0) {
+			etat=write(status, data, 1);
+		}
+		if (log==1) fprintf(logfile, "[Archive %s] Code retour du gzread : %d\n", directory, stat);
+		if (log==1) fprintf(logfile, "[Archive %s] Code retour du write : %d\n", directory, etat);
+		etat=close(status);
+		if (log==1) fprintf(logfile, "[Archive %s] Code retour du close : %d\n", directory, etat);
+		free(data);
+		printf("%s\n", filenamegz);
+		return 0;
+	}
+	/* FIN DU MODULE OPTIONNEL */
+
+
+	//Read du head l'archive compressée avec la bibliothèque zlib. Une archive gz semble avoir le même header qu'une archive tar.
+	status=(*gzread)(file, &head, sizeof(head));
+	if (log==1) fprintf(logfile, "[Archive %s] Code retour du 1er gzread : %d\n", directory, status);
+
+	//Récupération de la taille et allocation de la mémoire.
+	size=strtol(head.size, NULL, 8);
+	data=malloc(size);
+
+	//Récupération des données suivant le head.
+	status=(*gzread)(file, data, size);
+	if (log==1) fprintf(logfile, "[Archive %s] Code retour du 2e gzread : %d\n", directory, status);
+
+	//Copie et modification éventuelle (pour le cas temporaire) du filename
+	filename=malloc(sizeof(head.name));
+	strcpy(filename, head.name);
+
+	//Extraction du fichier.tar, si l'option -x est spécifiée le fichier.tar sera supprimé plus tard. (nommé <filename>.tar~)
+	if (extract==0) {
+		status=extraction(head, NULL, data, logfile, log);
+		if (log==1) fprintf(logfile, "[Archive %s] Code retour de la decompression (ecriture par extraction()) : %d\n", directory, status);
+	}
+	else {
+		strcat(filename, "~"); // On ajoute un caractère spécial pour éviter toute suppression accidentelle de fichier préexistant.
+		printf("filename temp: %s\n", filename);
+		status=extraction(head, filename, data, logfile, log);
+		if (log==1) fprintf(logfile, "[Archive %s] Code retour de la decompression (ecriture par extraction()) : %d\n", directory, status);
+	}
+	//Close du .gz
+	etat=(*gzclose)(file);
+	if (log==1) fprintf(logfile, "[Archive %s] Code retour du gzclose : %d\n", directory, etat);
+
+	//Déchargement de la bibliothèque dynamique.
+	dlclose(handle);
+	
+	//Retour du filename du fichier .tar
+	return filename;
 }
 

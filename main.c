@@ -1,5 +1,5 @@
 //////////////////////////////////////////////////////////   ptar - Extracteur d'archives durable et parallèle  ///////////////////////////////////////////////////////////////////
-///////////////////////////////////////////////////////////////////////   v 1.4.2.0        12/11/2016   //////////////////////////////////////////////////////////////////////////////////////
+///////////////////////////////////////////////////////////////////////   v 1.5.0.0        17/11/2016   //////////////////////////////////////////////////////////////////////////////////////
 
 #include <stdio.h>
 #include <stdlib.h>
@@ -30,6 +30,7 @@ int main(int argc, char *argv[]) {
 	
 	char *directory; //Emplacement de l'archive à traiter.
 	char *data; //Buffer pour les données suivant le header.
+	char *filename; //Fichier .tar post décompression, on le sauve dans une autre variable car open semble agir dessus.
 
 	int extract;
 	int extreturn; //Valeur de retour de extraction()
@@ -46,7 +47,7 @@ int main(int argc, char *argv[]) {
 
 	//Pour le utime des dossiers après tout extract
 	struct utimbuf tm; //Structure pour le utime
-	char dirlist[300][200]; //Liste des dossiers. 300 max mais on peut monter ce nombre. Longueur de 200 max pour le nom.
+	char dirlist[300][100]; //Liste des dossiers. 300 max mais on peut monter ce nombre. Longueur de 100 max pour le nom.
 	int mtimes[300]; //Liste des mtime, associé au premier tableau (dans l'ordre).
 	int nbdir=0; // Nombre de dossiers
 	int utim;
@@ -110,10 +111,21 @@ int main(int argc, char *argv[]) {
 	}
 
 	/*
+	Ouverture du logfile -e (pour extraction et décompression). Option pour développeurs.
+	*/
+	
+	if (log==1 && (extract==1 || decomp==1)) { //Rajouter éventuellement d'autres cas
+		time(&secondes);
+		instant=*localtime(&secondes);
+		logfile=fopen("logfile.txt", "a"); //L'option "a" pour faire un ajout en fin de fichier (et pas l'écraser à chaque fois)
+		fprintf(logfile, "Logfile du traitement de l'archive %s le %d/%d a %d:%d:%d\n", argv[optind], instant.tm_mday, instant.tm_mon+1, instant.tm_hour, instant.tm_min, instant.tm_sec);
+	}
+
+	/*
 	Tester l'argument (existence et nom bien formé).
 	*/
 
-	if (checkfile(argv[optind], decomp)==false) {
+	if (checkfile(argv[optind], decomp, extract, listingd, log, logfile)==false) {
 		//Les messages d'erreurs sont gérés dans checkfile.c	
 		return -1;
 	}
@@ -121,25 +133,17 @@ int main(int argc, char *argv[]) {
 	//Si tout va bien alors on récupère l'argument dans une variable pour le traiter plus loin.
 	directory=argv[optind];
 
-	/*
-	Ouverture du logfile -e (utile seulement à l'extraction pour le moment). Option pour développeurs.
-	*/
-	
-	if (log==1 && extract==1) { //enlever le extract==1 si on utilise pour d'autre cas.
-		time(&secondes);
-		instant=*localtime(&secondes);
-		logfile=fopen("logfile.txt", "a"); //L'option "a" pour faire un ajout en fin de fichier (et pas l'écraser à chaque fois)
-		fprintf(logfile, "Logfile de l'extraction de l'archive %s le %d/%d à %d:%d:%d\n", directory, instant.tm_mday, instant.tm_mon+1, instant.tm_hour, instant.tm_min, instant.tm_sec);
-	}
 
 	/*
 	Traitement de la décompression -z du fichier avant traitement ultérieurs.
 	*/
 	
 	if (decomp==1) {
-		decompress(directory);
+		filename=decompress(directory, logfile, log, extract, false, NULL); // On stocke précieusement ce filename pour l'éventuel remove.
+		if (filename==0) return 0;
+		strcpy(directory, filename); // On change le directory : l'archive .tar temporaire (si -x) à traiter.
 	}
-	
+
 	/*
 	Ouverture et vérification de la validité/existence du fichier.
 	*/
@@ -154,16 +158,16 @@ int main(int argc, char *argv[]) {
 		printf("Erreur d'ouverture du fichier, open() retourne : %d. Le fichier n'existe pas ou alors est corrompu.\n", file);
 		//On ferme le fichier avec close() avant chaque return pour une libération propre de la mémoire.
 		close(file);  //On ne gère pas pour l'instant le cas d'erreur -1 du close()
-		if (log==1 && extract==1) fclose(logfile); //Aussi le logfile.
+		if (log==1 &&  (extract==1 || decomp==1)) fclose(logfile); //Aussi le logfile.
 		return -1;
 	}
-	
-	/*
-	Traitement de chaque header les uns après les autres.
-	*/
 
+	/*
+	Traitement de chaque header les uns après les autres
+	*/
+	
 	do {
-		
+
 		/*
 		Récupération du header, détection de fin de fichier et récupération des données éventuelles.
 		*/
@@ -175,7 +179,7 @@ int main(int argc, char *argv[]) {
 		//Cas d'erreur -1 du read
 		if (status<0) {
 			printf("Erreur dans la lecture du header, read() retourne : %d \n", status);
-			if (log==1 && extract==1) fclose(logfile);
+			if (log==1 && (extract==1 || decomp==1)) fclose(logfile);
 			close(file);
 			return -1;
 		}
@@ -183,10 +187,17 @@ int main(int argc, char *argv[]) {
 		// (1) La fin d'une archive tar se termine par 2 enregistrements d'octets valant 0x0. (voir tar(5))
 		// Donc la string head.name du premier des 2 enregistrement est forcément vide. 
 		// On s'en sert donc pour détecter la fin du fichier (End Of File) et ne pas afficher les 2 enregistrements de 0x0.
-		if (strlen(head.name)==0) {	
+		if (strlen(head.name)==0) {
 	
 			//Fermeture de l'archive.
 			close(file);
+
+			//Suppression du fichier intermédiaire .tar~ post-décompression si -x est spécifiée
+			if (decomp==1 && extract==1) {
+				status=remove(filename);
+				free(filename); //Libération du malloc de decompresse()
+				if (log==1) fprintf(logfile, "[Fichier %s] Code retour du remove : %d\n", directory, status);
+			}
 
 			//Affectation du bon mtime pour les dossiers après traitement (nécessaire d'être en toute fin) de l'extraction.
 			if (extract==1 && nbdir>0) { //Il faut au moins 1 dossier pour permettre l'action.
@@ -200,11 +211,10 @@ int main(int argc, char *argv[]) {
 			}
 
 			//Fermeture du logfile
-			if (log==1 && extract==1) {
-				fputs("Fin d'extraction\n \n", logfile);
+			if (log==1 && (extract==1 || decomp==1)) {
+				fputs("Fin d'extraction\n\n", logfile);
 				fclose(logfile);
 			}
-		
 			return 0; 
 		}
 	
@@ -233,7 +243,7 @@ int main(int argc, char *argv[]) {
 			//Cas d'erreur -1 du read
 			if (status<0) {
 				printf("Erreur dans la lecture du header, read() retourne : %d\n", status);
-				if (extract==1) fclose(logfile);
+				if (log==1 && (extract==1 || decomp==1)) fclose(logfile);
 				close(file);
 				return -1;
 			}
@@ -264,10 +274,10 @@ int main(int argc, char *argv[]) {
 				mtime=strtol(head.mtime, NULL, 8);
 				strcpy(dirlist[nbdir], head.name);
 				mtimes[nbdir]=mtime;
-				nbdir++; //Incrémentaion du nombre de dossier/symlink
+				nbdir++; //Incrémentaion du nombre de dossiers
 			}
 
-			extreturn=extraction(head, data, logfile, log);
+			extreturn=extraction(head, NULL, data, logfile, log);
 			if (log==1) fprintf(logfile, "Retour d'extraction de %s : %d\n", head.name, extreturn);
 		}
 
@@ -290,7 +300,7 @@ int main(int argc, char *argv[]) {
 	//En effet la fin d'archive est détectée avant (au début du premier bloc de 512 octets vide).
 	printf("ptar n'aurait pas dû terminer de cette façon. (%s n'est probablement pas une véritable archive .tar[.gz])\n", directory);
 	close(file);
-	if (extract==1 && log==1) fclose(logfile);
+	if ( (extract==1 || decomp==1) && log==1) fclose(logfile);
 	return -1;
 }
 

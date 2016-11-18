@@ -1,11 +1,12 @@
 CC = gcc
+LDFLAGS = -rdynamic -ldl
 CFLAGS = -Wall -Wextra
 OBJECTS = main.o checkfile.o utils.o
 
 all: ptar
 
 ptar: $(OBJECTS)
-	$(CC) -o $@ $(OBJECTS) -ldl
+	$(CC) $(CFLAGS) -o $@ $(OBJECTS) $(LDFLAGS)
 
 main.o: main.c header.h checkfile.h utils.h
 	$(CC) $(CFLAGS) -c $<

@@ -36,11 +36,11 @@ Utilisation de ptar
 
 	    ./ptar -xp <NBTHREADS> <chemin/vers/archive>
 
-	Décompression d'une archive .tar.gz (compressée avec gzip) -NON IMPLEMENTE-
+	Décompression d'une archive .tar.gz (compressée avec gzip) -FONCTIONNEL-
 
 	   ./ptar -z <chemin/vers/archive>
 
-	Générer un logfile (pour extraction) de divers codes retours, pour développeurs -FONCTIONNEL-
+	Générer un logfile (pour extraction & décompression) de divers codes retours, pour développeurs -FONCTIONNEL-
 
 	   ./ptar -e <chemin/vers/archive>
 
@@ -62,15 +62,16 @@ Utilisation de ptar
 	    ./ptar -l archive_test/testall.tar
 	    ./ptar -xl archive_test/testall.tar
 	    ./ptar -xe archive_test/testall.tar
-	    ./ptar -xle archive_test/testall.tar
+	    ./ptar -z archive_test/testall.tar
+	    ./ptar -xz archive_test/testall.tar.gz
+	    ./ptar -zxl archive_test/testall.tar.gz
+	    ./ptar -xzel archive_test/testall.tar.gz
 
 	    à venir :
 	    ./ptar -xlp 3 archive_test/testall.tar
 	    ./ptar -xzlp 4 archive_test/testall.tar.gz
-	    ./ptar -zx 4 archive_test/testall.tar
-	    ./ptar -z archive_test/testall.tar.gz
 
-		
+
 	    Exécuter le script rmtest.sh avant chaque test sur les archives pour nettoyer le dossier courant (enlève également logfile.txt).
 	    ./rmtest.sh
 	   
@@ -109,7 +110,7 @@ Page de manuel ptar(1)
 
 Dernière Màj 
 
-	14/11/2016    03:08     version 1.4.2.0 (étape 4 corrigée - tests blancs)
+	17/11/2016    08:04     version 1.6.0.0 (étape 6 sans étape 5)
 
 
 Debug 
@@ -122,3 +123,8 @@ Debug
 	Le fichier logfile.txt généré lors de l'extraction si l'option -e est spécifiée contient les codes de retours des fonctions utilisées pendant l'extraction.
 	Générer un logfile lors de l'extraction d'une archive :
 		./ptar -xe archive_test/testall.tar
+
+	Il est possible d'également décompresser un fichier.gz (sans archivage), mais les attributs (tels que premissions, gid et uid) ne sont pas pas traités.
+	Les permissions sont forcées : Lecture ecriture et recherche pour l'utilisateur.
+	Cette fonction est purement optionnelle et en bêta.
+		./ptar -z ptar.1.gz
