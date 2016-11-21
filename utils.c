@@ -48,7 +48,7 @@ int traitement(char *directory, int extract, int decomp, int listingd, int thrd,
 	struct utimbuf tm; 	   //Structure pour le utime final des dossiers
 
 	char *data; 		   //Buffer pour les données suivant le header.
-	char *pipename;	   //Nom du tube nommé utilisé lors de la décompression.
+	char *pipename;		//Nom du tube nommé utilisé lors de la décompression.
 	char dirlist[500][100];  //Liste des dossiers. 500 max mais on peut monter ce nombre. Longueur de 100 max pour le nom.
 	
 	bool isEOF; 		//Flag d'End Of File.
@@ -64,7 +64,7 @@ int traitement(char *directory, int extract, int decomp, int listingd, int thrd,
 	int k;
 	int size;
 	int size_reelle;
-	int waitstatus;       //Valeur de retour du waitpid
+	int waitstatus;       //Valeur du status du waitpid
 
 	FILE *logfile; //logfile de l'extraction/decomp (codes de retour des open, symlink, mkdir, etc)
 
@@ -97,7 +97,7 @@ int traitement(char *directory, int extract, int decomp, int listingd, int thrd,
 
 	//On ouvre l'archive tar avec open() et le flag O_RDONLY (read-only). Si option -z, on décompresse, récupère les données dans un tube et on ouvre ce tube nommé.
 	if (decomp==1) {
-		//Décompression et ouverture dans un tube nommé, nommé tubedecompression.fifo
+		//Décompression et ouverture dans un tube nommé tubedecompression.fifo
 		pipename=decompress(directory, logfile, log, false, NULL);
 		//Ouverture de la sortie du tube nommé.
 		file = open(pipename, O_RDONLY);
@@ -169,11 +169,24 @@ int traitement(char *directory, int extract, int decomp, int listingd, int thrd,
 				size_reelle=512*((int)(size/512)+1);  //Utiliser (int)variable car c'est des int (floor est utilisé pour des double renvoyant un double)
 			}
 				
-			//On utilise le buffer data pour le read() des données inutiles pour le listing (mais pas pour l'extraction)
-			data=malloc(size_reelle);
+			//On n'alloue de la mémoire que si on a besoin des données (c'est-à-dire si on souhaite extraire)
+			if (extract==1 || decomp==1) {
+				//On utilise le buffer data pour le read() des données pour l'extraction
+				data=malloc(size_reelle);
 			
-			//On récupère les données suivant le buffer, elles vont servir pour l'extraction éventuelle.
-			status=read(file, data, size_reelle);
+				//On récupère les données suivant le buffer, elles vont servir pour l'extraction
+				status=read(file, data, size_reelle);
+
+				//Libération de la mémoire si non extraction : on ne peut pas lseek dans un tube nommé.
+				if (extract==0) {
+					free(data);
+				}
+			}
+			//Sinon un simple lseek() suffira (déplace la tête de lecture d'un certain offset). SAUF pour le tube nommé (voir plus haut).
+			else {
+				//Le flag (whence) SEEK_CUR assure que la tête de lecture est déplacée relativement à la position courante.
+				status=lseek(file, size_reelle, SEEK_CUR);
+			}
 
 			//Cas d'erreur -1 du read
 			if (status<0) {
@@ -477,7 +490,7 @@ char *decompress(char *directory, FILE *logfile, int log, bool isonlygz, const c
 	int stat;
 	int etat;
 	int pipstat;
-	int entreetube; //Entrée du tube nommé. (retourné par la fonction)
+	int entreetube; 	//Entrée du tube nommé. (retourné par la fonction)
 	pid_t pid;         //pid pour le fork, permet à la fonction de terminer pour ouvrir le tube de l'autre côté.
 	pid_t fpid;       //pid du processus fils, on va lui envoyer un signal pour lui dire que ce processus (le père) a terminé.
 
@@ -536,7 +549,7 @@ char *decompress(char *directory, FILE *logfile, int log, bool isonlygz, const c
 		if (log==1) fprintf(logfile, "[Archive %s] Code retour du close : %d\n", directory, etat);
 		free(data);
 		printf("%s\n", filenamegz);
-		//Etant donné que ce n'est pas censé être une utilisation normale de ptar, on renvoie -1.
+		//Etant donné que ce n'est pas censé être une utilisation normale de ptar, on termine le processus.
 		exit(EXIT_FAILURE);
 	}
 	/* FIN DU MODULE OPTIONNEL */

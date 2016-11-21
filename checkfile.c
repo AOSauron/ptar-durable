@@ -72,7 +72,7 @@ bool checkfile(char *file, int decomp, int extract, int listingd, int log, FILE 
 			isonlygz=true;
 			printf("Le nom du fichier %s ne semble pas être une archive .tar ou .tar.gz. Tentative de décompression...\n", file);
 			//Appel au module optionnel de dézippage.
-			decompress(file, logfile, log, isonlygz, filenamegz, 0);
+			decompress(file, logfile, log, isonlygz, filenamegz);
 			return false;
 		}
 		else {
