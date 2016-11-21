@@ -8,13 +8,13 @@ all: ptar
 ptar: $(OBJECTS)
 	$(CC) $(CFLAGS) -o $@ $(OBJECTS) $(LDFLAGS)
 
-main.o: main.c header.h checkfile.h utils.h
+main.o: main.c utils.h
 	$(CC) $(CFLAGS) -c $<
 
 checkfile.o: checkfile.c
 	$(CC) $(CFLAGS) -c $<
 
-utils.o: utils.c header.h
+utils.o: utils.c utils.h checkfile.h
 	$(CC) $(CFLAGS) -c $<
 
 clean:

@@ -14,7 +14,6 @@ lors du premier open() dans la boucle principale du main.
 #include <string.h>
 #include <stdbool.h>
 
-#include "header.h"
 #include "utils.h"
 
 bool checkfile(char *file, int decomp, int extract, int listingd, int log, FILE *logfile) {
@@ -63,8 +62,8 @@ bool checkfile(char *file, int decomp, int extract, int listingd, int log, FILE 
 	//Cas du .tar.gz ou .gz
 	if (strcmp(token_suivant, "gz") == 0) {   //Voir strcmp(3)
 		if ((strcmp(token_courant, "tar") == 0) && cpt_token > 2) {
-			if (decomp==0) { //Vérification du flag de décompression
-				printf("Séléctionnez l'option -z pour décompresser les fichiers au format .tar.gz avant tout autre opération\n");
+			if (decomp==0 ) { //Vérification du flag de décompression
+				printf("Séléctionnez l'option -z au minimum pour les fichiers au format .tar.gz\n");
 				return false;
 			}
 			else return true;
@@ -73,7 +72,7 @@ bool checkfile(char *file, int decomp, int extract, int listingd, int log, FILE 
 			isonlygz=true;
 			printf("Le nom du fichier %s ne semble pas être une archive .tar ou .tar.gz. Tentative de décompression...\n", file);
 			//Appel au module optionnel de dézippage.
-			decompress(file, logfile, log, extract, isonlygz, filenamegz);
+			decompress(file, logfile, log, isonlygz, filenamegz, 0);
 			return false;
 		}
 		else {

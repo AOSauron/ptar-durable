@@ -6,8 +6,11 @@
 
 rm -rf test/
 rm f1.*
+rm *.jpg
 
 rm logfile.txt
 
 rm *~
 rm archives_test/*~
+
+rm *.fifo
