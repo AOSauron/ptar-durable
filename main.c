@@ -77,8 +77,8 @@ int main(int argc, char *argv[]) {
 	
 	status = traitement(argv[optind]);
 
-	if (status==1 && decomp==1) {
-		printf("Nom du tube nommé utilisé pour la décompression : %s\n", pipenamed);
+	if (status==1) {
+		printf("ptar a renvoyé 1. Il y a eu au moins 1 erreur (probablement lors de l'extraction). Le nom du tube nommé utilisé pour la décompression (si elle a été spécifiée) est %s\n", pipenamed);
 	}
 
 	return status;

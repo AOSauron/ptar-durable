@@ -110,6 +110,12 @@ int traitement(char *folder) {
 		tribulle(composition);							//Effectue un tri à bulle sur la profondeur des dossiers.
 		postdecomp=traitepostdecomp(composition, logfile);	//Effectue les traitements grâce aux fonctions extraction() et listing().
 
+		//On n'oublie pas de libérer la mémoire allouée.
+		free(composition.headDir);
+		free(composition.headFile);
+		free(composition.headSymlink);
+		free(composition.datas);
+
 		//Retourne la valeur de retour de traitepostdecomp(), soit 0 (ok) ou 1 (au moins 1 erreur).
 		return postdecomp;
 	}
@@ -159,7 +165,7 @@ int traitement(char *folder) {
 		
 		//Cas où le fichier passé en paramètre n'est pas une archive tar POSIX ustar : vérification avec le champ magic du premier header.
 		//Si le premier header est validé, alors l'archive est conforme et ce test ne devrait pas être infirmé quelque soient les header suivant, par construction.
-		if (strcmp("ustar", head.magic)!=0 && strcmp("ustar  ", head.magic)!=0) { //Dans un .tar simple deux espaces suivent ustar, pas pour .tar.gz
+		if (strcmp("ustar", head.magic)!=0 && strcmp("ustar  ", head.magic)!=0) {
 			printf("Le fichier %s ne semble pas être une archive POSIX ustar.\n", folder);
 			if (logflag==1) fclose(logfile);
 			close(file);
@@ -455,7 +461,11 @@ int extraction(struct header_posix_ustar head, const char *name, char *data, FIL
 					sync=fsync(file);
 					if (logflag==1) fprintf(logfile, "[Fichier %s] Code retour du fsync : %d\n", head.name, sync);
 				}
-				free(data);   //On libère la mémoire allouée pour les données pointées.
+
+				//Libération de la mémoire seulement si non décompression. La libération du *datas se fera en toute fin.
+				if (decomp==0) {
+					free(data);
+				}
 			}
 			etat=close(file);
 			if (logflag==1) fprintf(logfile, "[Fichier %s] Code retour du close : %d\n", head.name, etat);

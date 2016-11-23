@@ -57,7 +57,7 @@ int getnbtoken(char *name, const char *delim);
 
 /*
 Boucle sur les headers, dans le bon ordre, afin d'extraire/lister tous les éléments de façon satisfaisante.
-Retourne 0 si tout s'est bien passé, 1 si il a eu au moins 1 erreur.
+Retourne 0 si tout s'est bien passé, 1 si il y a eu au moins 1 erreur.
 */
 
 int traitepostdecomp(gzHeadertype composition, FILE *logfile);

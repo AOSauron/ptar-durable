@@ -66,12 +66,14 @@ bool checkfile(char *file, FILE *logfile) {
 				printf("Séléctionnez l'option -z au minimum pour les fichiers au format .tar.gz\n");
 				return false;
 			}
-			else return true;
+			else {
+				if (logflag==1) fprintf(logfile, "Nom du tube nommé utilisé pour la décompression : %s\n", pipenamed);
+				return true;
+			}
 		}
 		else if (extract==0 && listingd==0 && decomp==1) { //Cas spécial .gz pur.
 			isonlygz=true;
 			printf("Le nom du fichier %s ne semble pas être une archive .tar ou .tar.gz. Tentative de décompression...\n", file);
-			printf("Nom du tube nommé utilisé pour la décompression : %s\n", pipenamed);
 			//Appel au module optionnel de dézippage.
 			decompress(file, logfile, isonlygz, filenamegz);
 			return false;

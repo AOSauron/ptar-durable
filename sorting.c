@@ -59,13 +59,6 @@ gzHeadertype analyse(const char *folder, FILE *logfile) {
 		exit(EXIT_FAILURE);
 	}
 
-	if (fd<0) {
-		printf("Problème de lecture dans le tube nommé pour l'analyse.\n");
-		if (logflag==1) fclose(logfile);
-		close(fd);
-		exit(EXIT_FAILURE);
-	}
-
 	//On attend le processus fils qui écrit dans le tube nommé.
 	waitpid(-1, &waitstatus, 0);
 
@@ -85,13 +78,11 @@ gzHeadertype analyse(const char *folder, FILE *logfile) {
 			break;
 		}
 
-		//printf("Nom : %s\n", head.name);
-
 		switch (head.typeflag[0]) {
 			case '0' :
 				nbfile++;
 				ptrintermediaire=realloc(headersfile, 512*nbfile);
-				if(ptrintermediaire==NULL){
+				if (ptrintermediaire==NULL){
 					free(headersfile);    //Désallocation
 					printf("Problème de réallocation lors de l'analyse.\n");
 					if (logflag==1) fclose(logfile);
@@ -106,39 +97,28 @@ gzHeadertype analyse(const char *folder, FILE *logfile) {
 				if (size>0) {
 					if (size%512==0) {
 						nbblocdata=nbblocdata+size/512;
-						buffintermediaire=realloc(datas, 512*nbblocdata);
-						if(buffintermediaire==NULL){
-						    	free(datas);    //Désallocation
-						    	printf("Problème de réallocation lors de l'analyse.\n");
-							if (logflag==1) fclose(logfile);
-							close(fd);
-							exit(EXIT_FAILURE);
-						}
-						else datas=buffintermediaire;
-
-						status=read(fd, &datas[nbfile-1], size);
 					}
 					else {
 						size=512*((int)(size/512)+1);
-						nbblocdata=nbblocdata+size/512;
-						buffintermediaire=realloc(datas, 512*nbblocdata);
-						if(buffintermediaire==NULL){
-						    	free(datas);    //Désallocation
-						    	printf("Problème de réallocation lors de l'analyse.\n");
-							if (logflag==1) fclose(logfile);
-							close(fd);
-							exit(EXIT_FAILURE);
-						}
-						else datas=buffintermediaire;
-
-						status=read(fd, &datas[nbfile-1], size);
 					}
+					nbblocdata=nbblocdata+size/512;
+					buffintermediaire=realloc(datas, 512*nbblocdata);
+					if (buffintermediaire==NULL){
+					    	free(datas);    //Désallocation
+					    	printf("Problème de réallocation lors de l'analyse.\n");
+						if (logflag==1) fclose(logfile);
+						close(fd);
+						exit(EXIT_FAILURE);
+					}
+					else datas=buffintermediaire;
+
+					status=read(fd, &datas[nbfile-1], size);
 				}
 				break;
 			case '2' :
 				nbsymlink++;
 				ptrintermediaire=realloc(headerssymlink, 512*nbsymlink);
-				if(ptrintermediaire==NULL){
+				if (ptrintermediaire==NULL){
 				    	free(headerssymlink);    //Désallocation
 				    	printf("Problème de réallocation lors de l'analyse.\n");
 					if (logflag==1) fclose(logfile);
@@ -152,7 +132,7 @@ gzHeadertype analyse(const char *folder, FILE *logfile) {
 			case '5' :
 				nbdir++;
 				ptrintermediaire=realloc(headersdir, 512*nbdir);
-				if(ptrintermediaire==NULL){
+				if (ptrintermediaire==NULL){
 				    	free(headersdir);    //Désallocation
 				    	printf("Problème de réallocation lors de l'analyse.\n");
 					if (logflag==1) fclose(logfile);
@@ -277,16 +257,16 @@ int traitepostdecomp(gzHeadertype composition, FILE *logfile) {
 		if (extract==1) extreturn=extraction(composition.headFile[i], NULL, &composition.datas[i], logfile);
 		if (listingd==1) listing(composition.headFile[i]);
 		else printf("%s\n", composition.headFile[i].name);
-		if (logflag==1) fprintf(logfile, "[Fichier %s] Code retour d' extraction : %d\n", composition.headDir[i].name, extreturn);
+		if (logflag==1) fprintf(logfile, "[Fichier %s] Code retour d' extraction : %d\n", composition.headFile[i].name, extreturn);
 		if (extreturn==-1) returnvalue=1;
 	}
 
 	//On finit par les liens symboliques
-	for (i=0; i<composition.nbDir; i++) {
+	for (i=0; i<composition.nbSymlink; i++) {
 		if (extract==1) extreturn=extraction(composition.headSymlink[i], NULL, NULL, logfile);
 		if (listingd==1) listing(composition.headSymlink[i]);
 		else printf("%s\n", composition.headSymlink[i].name);
-		if (logflag==1) fprintf(logfile, "[Lien symbolique %s] Code retour d' extraction : %d\n", composition.headDir[i].name, extreturn);
+		if (logflag==1) fprintf(logfile, "[Lien symbolique %s] Code retour d' extraction : %d\n", composition.headSymlink[i].name, extreturn);
 		if (extreturn==-1) returnvalue=1;
 	}
 
