@@ -1,5 +1,5 @@
 //////////////////////////////////////////////////////////   ptar - Extracteur d'archives durable et parallèle  ///////////////////////////////////////////////////////////////////
-///////////////////////////////////////////////////////////////////////   v 1.5.0.0        17/11/2016   //////////////////////////////////////////////////////////////////////////////////////
+///////////////////////////////////////////////////////////////////////   v 1.5.1.0        23/11/2016   //////////////////////////////////////////////////////////////////////////////////////
 
 #include <stdio.h>
 #include <stdlib.h>
@@ -13,33 +13,26 @@ int main(int argc, char *argv[]) {
 	Déclarations et initialisation des variables
 	*/
 
-	int extract;
-	int listingd;
-	int decomp;
 	int opt;
-	int nthreads;
-	int thrd;
-	int log; //Flags pour logfile (option -e)
 	int status;
 
-	nthreads=0;   //Nombre des threads à utiliser (seulement si l'option -p est utilisée).
-	//Initialisation des flags des options de ligne de commande.
+	//Initialisation des flags des options de ligne de commande. Ce sont des variables globales dans utils.h
 	thrd=0;
 	extract=0;
 	listingd=0;
 	decomp=0;
-
+	logflag=0;
 
 
 	/*
-	Traitement des options de ligne de commande
+	Traitement des options de ligne de commande. Set des flags (var globales) d'options.
 	*/
 
 	while ((opt=getopt(argc, argv, "xelzp:")) != -1) {
 		switch (opt) {
 			//Logfile (utile seulement pour l'extraction pour l'instant)
 			case 'e' :
-				log=1;
+				logflag=1;
 				break;
 			//Extraction : -x
 			case 'x' :
@@ -60,31 +53,33 @@ int main(int argc, char *argv[]) {
 				//(Et on considère qu'on ne tolère pas 0 threads ...)
 				if (nthreads==0) {
 					printf("Utilisation: %s [-x] [-l] [-z] [-p NBTHREADS] emplacement_archive\n", argv[0]);
-					return -1;
+					return 1;
 				}
 				thrd=1;
 				break;
 			default:
 				printf("Utilisation: %s [-x] [-l] [-z] [-p NBTHREADS] emplacement_archive\n", argv[0]);
-				return -1;
+				return 1;
 		}
 	}
 
-	//printf("Falgs  :  extract=%d; listing=%d; decomp=%d; thrd=%d; NTHREADS=%d; optind=%d\n", extract, listingd,decomp ,thrd, nthreads, optind); - DEBUG
+	//printf("Falgs  :  extract=%d; listing=%d; decomp=%d; thrd=%d; NTHREADS=%d; optind=%d\n", extract, listingd, decomp ,thrd, nthreads, optind); - DEBUG
 	
 	//Pour l'option -p, attente d'un argument pour p (et ce sera forcément un int à cause du test dans le case 'p')
 	if (optind >= argc) {
 		printf("Arguments attendus après options\n"); 
-		return -1;
+		return 1;
 	}
-
-
 
 	/*
 	Traitement effectif de l'archive
 	*/
 	
-	status = traitement(argv[optind], extract, decomp, listingd, thrd, nthreads, log);
+	status = traitement(argv[optind]);
+
+	if (status==1 && decomp==1) {
+		printf("Nom du tube nommé utilisé pour la décompression : %s\n", pipenamed);
+	}
 
 	return status;
 }

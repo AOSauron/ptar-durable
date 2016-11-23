@@ -1,7 +1,7 @@
 CC = gcc
-LDFLAGS = -rdynamic -ldl
+LDFLAGS = -lpthread -rdynamic -ldl
 CFLAGS = -Wall -Wextra
-OBJECTS = main.o checkfile.o utils.o
+OBJECTS = main.o checkfile.o utils.o sorting.o
 
 all: ptar
 
@@ -11,10 +11,13 @@ ptar: $(OBJECTS)
 main.o: main.c utils.h
 	$(CC) $(CFLAGS) -c $<
 
-checkfile.o: checkfile.c
+checkfile.o: checkfile.c utils.h
 	$(CC) $(CFLAGS) -c $<
 
 utils.o: utils.c utils.h checkfile.h
+	$(CC) $(CFLAGS) -c $<
+
+sorting.o: sorting.c utils.h sorting.h
 	$(CC) $(CFLAGS) -c $<
 
 clean:

@@ -9,10 +9,28 @@ Correspondantes aux options suivantes :
 -l : Listing détaillé.
 -z : Décompression gzip avec la bibliothèque zlib.
 -p NBTHREADS : (forcément couplée avec -x au moins) Durabilité et parallélisation de l'opération avec un nombre de threads choisi.
--e : Ecriture d'un logfile.txt. Utile pour -z et -x.
+-e : Ecriture dans un logfile.txt. Utile pour -z et -x.
 
 */
 
+#ifndef INCLUDE_UTILS_H
+#define INCLUDE_UTILS_H
+
+#define TAILLELISTE 1024
+
+#include <stdbool.h>
+
+
+/* Déclaration des variables globales : flags de ligne de commandes initialisés dans main et nom du tube nommé */
+
+static const char *pipenamed = "tubedecompression.fifo";		//Nom du tube nommé contenant les données décompressées.
+
+int extract;	//Flags pour extraction (option -x)
+int listingd;	//Flags pour listing détaillé (option -l)
+int decomp;	//Flags pour décompression (option -z)
+int logflag; 	//Flags pour logfile (option -e)
+int thrd;		//Flags pour parallélisation (option -p)
+int nthreads;	//Nombre de threads (option -p)
 
 
 /*
@@ -41,10 +59,6 @@ struct header_posix_ustar {
 };
 
 
-#include <stdbool.h>
-
-
-
 /*
 Fonction principale : recueille les header de chaque fichier dans l'archive (compressée ou non) ainsi que les données suivantes chaque header si il y en a.
 Appelle ensuite les diverses fonctions utiles au traitement souhaité.
@@ -52,7 +66,7 @@ Prend en argument l'emplacement de l'archive, et les 5 flags d'options (ainsi qu
 Retourne 0 si tout s'est bien passé, 1 sinon.
 */
 
-int traitement(char *directory, int extract, int decomp, int listingd, int thrd, int nbthrd, int log);
+int traitement(char *folder);
 
 
 
@@ -86,7 +100,7 @@ Si on veut forcer un nom de fichier, le spécifier dans le champ name, sinon met
 Retourne 0 si tout s'est bien passé, -1 sinon.
 */
 
-int extraction(struct header_posix_ustar head, const char *name, char *data, FILE *logfile, int log);
+int extraction(struct header_posix_ustar head, const char *name, char *data, FILE *logfile);
 
 
 
@@ -100,7 +114,7 @@ Module optionnel : Gère le cas d'une archive .gz seule (et non .tar.gz) avec le
 Excepté pour le cas d'un fichier compressé au format .gz sans archivage, filenamegz devrait être mis à NULL et isonlygz à false.
 */
 
-char *decompress(char *directory, FILE *logfile, int log, bool isonlygz, const char *filenamegz);
+const char *decompress(char *folder, FILE *logfile, bool isonlygz, const char *filenamegz);
 
 
-
+#endif

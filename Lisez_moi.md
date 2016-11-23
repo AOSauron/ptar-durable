@@ -32,11 +32,11 @@ Utilisation de ptar
 
 	    ./ptar -l <chemin/vers/archive>
 
-	Parallélisation et durabilisation de l'extraction avec NBTHREADS threads -NON IMPLEMENTE-
+	Parallélisation et durabilisation des écritures avec NBTHREADS threads -NON IMPLEMENTE-
 
-	    ./ptar -xp <NBTHREADS> <chemin/vers/archive>
+	    ./ptar -p <NBTHREADS> <chemin/vers/archive>
 
-	Décompression d'une archive .tar.gz (compressée avec gzip) -FONCTIONNEL-
+	Décompression d'une archive .tar.gz (compressée avec gzip) -SEMI FONCTIONNEL-
 
 	   ./ptar -z <chemin/vers/archive>
 
@@ -110,7 +110,7 @@ Page de manuel ptar(1)
 
 Dernière Màj 
 
-	17/11/2016    08:04     version 1.6.0.0 (étape 6 sans étape 5)
+	23/11/2016    21:53     version 1.5.1.0 (étape 6 sans étape 5, améliorée)
 
 
 Debug 

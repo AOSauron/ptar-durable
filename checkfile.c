@@ -16,7 +16,7 @@ lors du premier open() dans la boucle principale du main.
 
 #include "utils.h"
 
-bool checkfile(char *file, int decomp, int extract, int listingd, int log, FILE *logfile) {
+bool checkfile(char *file, FILE *logfile) {
 
 	bool isonlygz;
 	int cpt_token;
@@ -62,21 +62,22 @@ bool checkfile(char *file, int decomp, int extract, int listingd, int log, FILE 
 	//Cas du .tar.gz ou .gz
 	if (strcmp(token_suivant, "gz") == 0) {   //Voir strcmp(3)
 		if ((strcmp(token_courant, "tar") == 0) && cpt_token > 2) {
-			if (decomp==0 ) { //Vérification du flag de décompression
+			if (decomp==0) { //Vérification du flag de décompression
 				printf("Séléctionnez l'option -z au minimum pour les fichiers au format .tar.gz\n");
 				return false;
 			}
 			else return true;
 		}
-		else if (extract==0 && listingd==0) { //Cas spécial .gz pur.
+		else if (extract==0 && listingd==0 && decomp==1) { //Cas spécial .gz pur.
 			isonlygz=true;
 			printf("Le nom du fichier %s ne semble pas être une archive .tar ou .tar.gz. Tentative de décompression...\n", file);
+			printf("Nom du tube nommé utilisé pour la décompression : %s\n", pipenamed);
 			//Appel au module optionnel de dézippage.
-			decompress(file, logfile, log, isonlygz, filenamegz);
+			decompress(file, logfile, isonlygz, filenamegz);
 			return false;
 		}
 		else {
-			printf(" Le nom du fichier %s n'est pas au bon format. ([.tar].gz) ou n'utilisez que -z pour un fichier .gz pur.\n", file);
+			printf("Le nom du fichier %s n'est pas au bon format. ([.tar].gz) ou n'utilisez que -z pour un fichier .gz pur.\n", file);
 			return false;
 		}
 	}

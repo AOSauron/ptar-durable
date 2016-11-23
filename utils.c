@@ -30,7 +30,7 @@ Correspondantes aux options suivantes :
 #include "checkfile.h"
 #include "zlib/zlib.h"
 #include "utils.h"
-
+#include "sorting.h"
 
 
 /*
@@ -38,35 +38,37 @@ Fonction principale : recueille les header de chaque fichier dans l'archive (com
 Appelle ensuite les diverses fonctions utiles au traitement souhaité.
 */
 
-int traitement(char *directory, int extract, int decomp, int listingd, int thrd, int nbthrd, int log) {
+int traitement(char *folder) {
 
 	/*
 	Déclarations et initialisation des variables
 	*/
 	
-	struct header_posix_ustar head;
-	struct utimbuf tm; 	   //Structure pour le utime final des dossiers
+	struct header_posix_ustar head;	//Structure des header tar POSIX ustar.
+	struct utimbuf tm; 	   			//Structure pour le utime final des dossiers
 
-	char *data; 		   //Buffer pour les données suivant le header.
-	char *pipename;		//Nom du tube nommé utilisé lors de la décompression.
-	char dirlist[500][100];  //Liste des dossiers. 500 max mais on peut monter ce nombre. Longueur de 100 max pour le nom.
+	char *data; 		   			//Buffer pour les données suivant le header.
+	const char *pipename;			//Nom du tube nommé utilisé lors de la décompression.
+	char dirlist[TAILLELISTE][100];  	//Liste des dossiers. Défini à 1024 max mais on peut monter ce nombre. Longueur de 100 max pour le nom.
 	
-	bool isEOF; 		//Flag d'End Of File.
+	bool isEOF; 					//Flag d'End Of File.
 
 	int file;
 	int status;
-	int extreturn;	     //Valeur de retour de extraction()
-	int mtimes[500];    //Liste des mtime, associé au premier tableau (dans l'ordre).
-	int nbdir; 		     //Nombre de dossiers
+	int extreturn;	     				//Valeur de retour de extraction()
+	int postdecomp;				//Valeur de retour de traitepostdecomp() de sorting.h
+	int mtimes[TAILLELISTE];   		//Liste des mtime, associé au premier tableau (dans l'ordre).
+	int nbdir; 		     				//Nombre de dossiers
 	int utim;
 	int typeflag;
 	int mtime;
 	int k;
 	int size;
 	int size_reelle;
-	int waitstatus;       //Valeur du status du waitpid
 
-	FILE *logfile; //logfile de l'extraction/decomp (codes de retour des open, symlink, mkdir, etc)
+	FILE *logfile; 					//logfile de l'extraction/decomp (codes de retour des open, symlink, mkdir, etc).
+
+	gzHeadertype composition;		//Structure particulière, voir sorting.h
 
 	nbdir=0;
 	size_reelle=0;
@@ -77,17 +79,18 @@ int traitement(char *directory, int extract, int decomp, int listingd, int thrd,
 	Génération du logfile si besoin -e. Option pour développeurs. (utile pour extraction et décompression)
 	*/
 
-	if (log==1) {
-		logfile = genlogfile("logfile.txt", "a", directory);
+	if (logflag==1) {
+		logfile = genlogfile("logfile.txt", "a", folder);
 	}
 
 	/*
 	Tester l'argument (existence et nom bien formé).
 	*/
 
-	if (checkfile(directory, decomp, extract, listingd, log, logfile)==false) {
+	if (checkfile(folder, logfile)==false) {
 		//Les messages d'erreurs sont gérés dans checkfile.c. 
 		//Si l'archive est seulement compressée, tente une décompression directe: ptar n'est pas prévu pour cela, ce module est donc en bêta (développement inutil)
+		if(logflag==1) fclose(logfile);
 		return 1;
 	}
 	
@@ -97,25 +100,30 @@ int traitement(char *directory, int extract, int decomp, int listingd, int thrd,
 
 	//On ouvre l'archive tar avec open() et le flag O_RDONLY (read-only). Si option -z, on décompresse, récupère les données dans un tube et on ouvre ce tube nommé.
 	if (decomp==1) {
+
 		//Décompression et ouverture dans un tube nommé tubedecompression.fifo
-		pipename=decompress(directory, logfile, log, false, NULL);
-		//Ouverture de la sortie du tube nommé.
-		file = open(pipename, O_RDONLY);
-		//Attente du fils pour continuer (provient du decompress). Sinon le programme se mettrais à lire avant la fin de l'écriture ! C'est plus sûr d'attendre.
-		waitpid(-1, &waitstatus, 0);
+		pipename=decompress(folder, logfile, false, NULL);
+
+		/*  sorting.h  */
+		//L'ouverture de la sortie du tube nommé se fait dans analyse(), tout comme le waitpid (sinon le programme se mettrais à lire avant la fin de l'écriture).
+		composition=analyse(pipename, logfile);				//Analyse l'archive et retourne une structure adaptée.
+		tribulle(composition);							//Effectue un tri à bulle sur la profondeur des dossiers.
+		postdecomp=traitepostdecomp(composition, logfile);	//Effectue les traitements grâce aux fonctions extraction() et listing().
+
+		//Retourne la valeur de retour de traitepostdecomp(), soit 0 (ok) ou 1 (au moins 1 erreur).
+		return postdecomp;
 	}
 	else {
-		file = open(directory, O_RDONLY);
+		file=open(folder, O_RDONLY);
 	}
 
 	//Cas d'erreur -1 du open() ou du decompress : problème dans le fichier.
 	if (file<0) {
 		printf("Erreur d'ouverture du fichier, open() retourne : %d. Le fichier n'existe pas ou alors est corrompu.\n", file);
 		close(file);
-		if (log==1) fclose(logfile); //Aussi le logfile.
+		if (logflag==1) fclose(logfile); //Aussi le logfile.
 		return 1;
 	}	
-
 
 	/*
 	Traitement de chaque header les uns après les autres
@@ -124,7 +132,7 @@ int traitement(char *directory, int extract, int decomp, int listingd, int thrd,
 	do {
 
 		/*
-		Récupération du header, détection de fin de fichier et récupération des données éventuelles.
+		Récupération du header, détection de fin de fichier et vérification du format archive POSIX ustar du fichier.
 		*/
 
 		//On lit (read) un premier bloc (header) de 512 octets qu'on met dans une variable du type de la structure header_posix_ustar définie dans header.h (norme POSIX.1)
@@ -133,22 +141,33 @@ int traitement(char *directory, int extract, int decomp, int listingd, int thrd,
 		//Cas d'erreur -1 du read
 		if (status<0) {
 			printf("Erreur dans la lecture du header, read() retourne : %d \n", status);
-			if (log==1) fclose(logfile);
+			if (logflag==1) fclose(logfile);
 			close(file);
 			return 1;
 		}
-
 
 		/* La fin d'une archive tar se termine par 2 enregistrements d'octets valant 0x0. (voir tar(5))
 		Donc la string head.name du premier des 2 enregistrement est forcément vide. 
 		On s'en sert donc pour détecter la fin du fichier (End Of File) et ne pas afficher les 2 enregistrements de 0x0. */
 
-		//Détection de l'End Of File : met le flag isEOF à true et stoppe la boucle. Le flag est destiné à aider les développeurs (il ne stoppe pas effectivement la boucle)
+		//Détection de l'End Of File : met le flag isEOF à true et stoppe la boucle. Le flag est destiné à aider les développeurs (il ne sert pas à stopper la boucle)
 		if (strlen(head.name)==0 || status==0) {
 			isEOF=true; 
 			break;
 		}
 		
+		
+		//Cas où le fichier passé en paramètre n'est pas une archive tar POSIX ustar : vérification avec le champ magic du premier header.
+		//Si le premier header est validé, alors l'archive est conforme et ce test ne devrait pas être infirmé quelque soient les header suivant, par construction.
+		if (strcmp("ustar", head.magic)!=0 && strcmp("ustar  ", head.magic)!=0) { //Dans un .tar simple deux espaces suivent ustar, pas pour .tar.gz
+			printf("Le fichier %s ne semble pas être une archive POSIX ustar.\n", folder);
+			if (logflag==1) fclose(logfile);
+			close(file);
+			return 1;
+		}
+		
+		//Récupération du type d'élément.
+		typeflag=strtol(head.typeflag, NULL, 10);
 
 		/*
 		Récupération des data (dans le cas d'un fichier non vide).
@@ -177,26 +196,25 @@ int traitement(char *directory, int extract, int decomp, int listingd, int thrd,
 				//On récupère les données suivant le buffer, elles vont servir pour l'extraction
 				status=read(file, data, size_reelle);
 
-				//Libération de la mémoire si non extraction : on ne peut pas lseek dans un tube nommé.
+				//Libération de la mémoire si non extraction : on ne peut pas lseek() dans un tube nommé.
 				if (extract==0) {
 					free(data);
 				}
 			}
 			//Sinon un simple lseek() suffira (déplace la tête de lecture d'un certain offset). SAUF pour le tube nommé (voir plus haut).
 			else {
-				//Le flag (whence) SEEK_CUR assure que la tête de lecture est déplacée relativement à la position courante.
+				//Le flag (whence) SEEK_CUR assure que la tête de lecture est déplacée de size_réelle octets relativement à la position courante.
 				status=lseek(file, size_reelle, SEEK_CUR);
 			}
 
 			//Cas d'erreur -1 du read
 			if (status<0) {
 				printf("Erreur dans la lecture du header, read() retourne : %d\n", status);
-				if (log==1) fclose(logfile);
+				if (logflag==1) fclose(logfile);
 				close(file);
 				return 1;
 			}
 		}
-
 
 		/*
 		Traitement du listing du header (détaillé -l ou non)
@@ -227,9 +245,9 @@ int traitement(char *directory, int extract, int decomp, int listingd, int thrd,
 			}
 
 			//Extraction de l'élément.
-			extreturn=extraction(head, NULL, data, logfile, log);
-
-			if (log==1) fprintf(logfile, "Retour d'extraction de %s : %d\n", head.name, extreturn);
+			extreturn=extraction(head, NULL, data, logfile);
+			
+			if (logflag==1) fprintf(logfile, "Retour d'extraction de %s : %d\n", head.name, extreturn);
 		}
 
 		/*
@@ -237,11 +255,11 @@ int traitement(char *directory, int extract, int decomp, int listingd, int thrd,
 		*/
 
 		if (thrd==1) {
-			printf("Parallélisation à faire !\n");
+			nthreads=0; // JUSTE POUR FAIRE TAIRE CE WARNING UNUSED PARAMETER
+			//printf("Parallélisation à faire !\n");
 		}
 
 	} while (isEOF==false);  //On aurait pu mettre while(1) puisque la boucle doit normalement se faire breaker plus haut.
-
 	
 	/*
 	Fin des traitements
@@ -252,8 +270,8 @@ int traitement(char *directory, int extract, int decomp, int listingd, int thrd,
 
 	//Suppression du tube nommé post-décompression
 	if (decomp==1) {
-		status=remove(pipename);
-		if (log==1) fprintf(logfile, "[Fichier %s] Code retour du remove : %d\n", directory, status);
+		status=remove(pipenamed);
+		if (logflag==1) fprintf(logfile, "[Fichier %s] Code retour du remove : %d\n", folder, status);
 	}
 
 	//Affectation du bon mtime pour les dossiers après traitement (nécessaire d'être en toute fin) de l'extraction.
@@ -263,12 +281,12 @@ int traitement(char *directory, int extract, int decomp, int listingd, int thrd,
 			tm.modtime=mtimes[k];
 			utim=utime(dirlist[k], &tm);
 			//Ajout des derniers retour d'utime() dans le logfile.
-			if (log==1) fprintf(logfile, "[Dossier %s] Code retour du utime : %d\n", dirlist[k], utim);
+			if (logflag==1) fprintf(logfile, "[Dossier %s] Code retour du utime : %d\n", dirlist[k], utim);
 		}
 	}
 
 	//Fermeture du logfile
-	if (log==1) {
+	if (logflag==1) {
 		fputs("Fin de decompression/extraction.\n\n", logfile);
 		fclose(logfile);
 	}
@@ -366,9 +384,9 @@ int listing(struct header_posix_ustar head) {
 Traite l'extraction des éléments (regular files, directory, symbolic links)
 */
 
-int extraction(struct header_posix_ustar head, const char *name, char *data, FILE *logfile, int log) {
+int extraction(struct header_posix_ustar head, const char *name, char *data, FILE *logfile) {
 
-	struct timeval tv[2];
+	struct timeval *tv;
 	
 	int mode;
 	int size;
@@ -394,7 +412,8 @@ int extraction(struct header_posix_ustar head, const char *name, char *data, FIL
 	//Récupération du mtime en secondes depuis l'Epoch. (voir tar(5))
 	mtime=strtol(head.mtime, NULL, 8);	
 
-	//On set les champs de la structure timeval[2] pour utimes() et lutimes(). Il FAUT un timeval[2] à l'inverse du warning de compilation !
+	//On set les champs de la structure timeval[2] pour utimes() et lutimes().
+	tv=malloc(2*sizeof(struct timeval));	
 	tv[0].tv_sec=mtime;
 	tv[0].tv_usec=0;
 	tv[1].tv_sec=mtime;
@@ -418,45 +437,52 @@ int extraction(struct header_posix_ustar head, const char *name, char *data, FIL
 	switch (head.typeflag[0]) {
 		//Fichiers réguliers
 		case '0' :
-			if (log==1) fprintf(logfile, "[Fichier %s] Code retour du setuid : %d et du setgid : %d\n", head.name, etatuid, etatgid);
+			if (logflag==1) fprintf(logfile, "[Fichier %s] Code retour du setuid : %d et du setgid : %d\n", head.name, etatuid, etatgid);
 			if (name==NULL) {
 				file=open(head.name, O_CREAT | O_WRONLY | O_SYNC | O_DSYNC, mode); //O_CREAT pour créer le fichier et O_WRONLY pour pouvoir écrire dedans. O_SYNC et O_DSYNC pour fsync().
 			}
 			else {
-				file=open(name, O_CREAT | O_WRONLY | O_SYNC | O_DSYNC, mode); //Permet la personnalisation du nom de fichier (voir decompression)
+				file=open(name, O_CREAT | O_WRONLY | O_SYNC | O_DSYNC, mode); //Permet la personnalisation du nom de fichier
 			}
-			if (log==1) fprintf(logfile, "[Fichier %s] Code retour du open : %d\n", head.name, file);
+			if (logflag==1) fprintf(logfile, "[Fichier %s] Code retour du open : %d\n", head.name, file);
 			//Voir la partie (2)du main: récupération de données. Il faut utiliser size et pas size_reelle cette fois-ci
 			if (size > 0) {  //Ecriture si seulement le fichier n'est pas vide !
       				writ=write(file, data, size);
-				if (log==1) fprintf(logfile, "[Fichier %s] Code retour du write : %d\n", head.name, writ);
+				if (logflag==1) fprintf(logfile, "[Fichier %s] Code retour du write : %d\n", head.name, writ);
+
+				//Durabilité de l'écriture sur disque si option -p
+				if (thrd==1) {
+					sync=fsync(file);
+					if (logflag==1) fprintf(logfile, "[Fichier %s] Code retour du fsync : %d\n", head.name, sync);
+				}
 				free(data);   //On libère la mémoire allouée pour les données pointées.
 			}
-			sync=fsync(file);
-			if (log==1) fprintf(logfile, "[Fichier %s] Code retour du fsync : %d\n", head.name, sync);
 			etat=close(file);
-			if (log==1) fprintf(logfile, "[Fichier %s] Code retour du close : %d\n", head.name, etat);
+			if (logflag==1) fprintf(logfile, "[Fichier %s] Code retour du close : %d\n", head.name, etat);
 			//On utilise utimes au lieu de utime pour factoriser la structure (donc le code) commune avec lutimes (symlinks).
-			utim=utimes(head.name, &tv); //Une fois le fichier créé complétement (et fermé!), on configure son modtime (et actime).
-			if (log==1) fprintf(logfile, "[Fichier %s] Code retour du utime : %d\n", head.name, utim);
+			utim=utimes(head.name, tv); //Une fois le fichier créé complétement (et fermé!), on configure son modtime (et actime).
+			free(tv);
+			if (logflag==1) fprintf(logfile, "[Fichier %s] Code retour du utime : %d\n", head.name, utim);
 			break;
 		//Liens symboliques
 		case '2' :
-			if (log==1) fprintf(logfile, "[Lien symbolique %s] Code retour du setuid : %d et du setgid : %d\n", head.name, etatuid, etatgid);
+			if (logflag==1) fprintf(logfile, "[Lien symbolique %s] Code retour du setuid : %d et du setgid : %d\n", head.name, etatuid, etatgid);
 			etat=symlink(head.linkname, head.name);
-			if (log==1) fprintf(logfile, "[Lien symbolique %s] Code retour du symlink : %d\n", head.name, etat);
-			utim=lutimes(head.name, &tv); //On utilise lutimes car utime ne fonctionne pas sur les symlink : voir lutimes(3).
-			if (log==1) fprintf(logfile, "[Lien symbolique %s] Code retour du utime : %d\n", head.name, utim);
+			if (logflag==1) fprintf(logfile, "[Lien symbolique %s] Code retour du symlink : %d\n", head.name, etat);
+			utim=lutimes(head.name, tv); //On utilise lutimes car utime ne fonctionne pas sur les symlink : voir lutimes(3).
+			free(tv);
+			if (logflag==1) fprintf(logfile, "[Lien symbolique %s] Code retour du utime : %d\n", head.name, utim);
 			break;
 		//Répertoires
 		case '5' :
-			if (log==1) fprintf(logfile, "[Dossier %s] Code retour du setuid : %d et du setgid : %d\n", head.name, etatuid, etatgid);
+			if (logflag==1) fprintf(logfile, "[Dossier %s] Code retour du setuid : %d et du setgid : %d\n", head.name, etatuid, etatgid);
 			etat=mkdir(head.name, mode);
 			//Le utime est fait à la fin (en effet on continue de parcourir les dossiers et d'y créer d'autre élément on modifie donc le mtime juste après !)
-			if (log==1) fprintf(logfile, "[Dossier %s] Code retour du mkdir : %d\n", head.name, etat);
+			if (logflag==1) fprintf(logfile, "[Dossier %s] Code retour du mkdir : %d\n", head.name, etat);
 			break;
 		default:
 			printf("Elément inconnu par ptar : Typeflag = [%c]\n", head.typeflag[0]);
+			return -1;
 	}
 	
 	//Code de retour de extraction (évolutif, rajouter éventuellement des cas de return -1)
@@ -472,29 +498,32 @@ int extraction(struct header_posix_ustar head, const char *name, char *data, FIL
 Traite la décompression de l'archive .tar.gz avec zlib (éventuellement d'une archive .gz pure aussi)
 */
 
-char *decompress(char *directory, FILE *logfile, int log, bool isonlygz, const char *filenamegz) {
+const char *decompress(char *folder, FILE *logfile, bool isonlygz, const char *filenamegz) {
 
 	void *handle;
 	char *error;
 	char *erroropen;
 	char *errorread;
 	char *errorclose;
-	char *data; // Nom du tube nommé.
-	char *pipename;
+	char *erroreof;
+	char *errorrewind;
+	char *data;
 	gzFile file;
 
 	gzFile (*gzopen)();
 	int (*gzread)();
 	int (*gzclose)();
+	int (*gzrewind)();
+	int (*gzeof)();
 	int status;
 	int stat;
 	int etat;
 	int pipstat;
 	int entreetube; 	//Entrée du tube nommé. (retourné par la fonction)
-	pid_t pid;         //pid pour le fork, permet à la fonction de terminer pour ouvrir le tube de l'autre côté.
-	pid_t fpid;       //pid du processus fils, on va lui envoyer un signal pour lui dire que ce processus (le père) a terminé.
+	pid_t pid;        		//pid pour le fork, permet à la fonction de terminer pour ouvrir le tube de l'autre côté.
+	pid_t fpid;       		//pid du processus fils, on va lui envoyer un signal pour lui dire que ce processus (le père) a terminé.
 
-	if (log==1) fprintf(logfile, "Debut de la decompression de l'archive %s\n", directory);
+	if (logflag==1) fprintf(logfile, "Debut de la decompression de l'archive %s\n", folder);
 
 	//Chargement de la bibliothèque zlib avec dlopen.
 	handle=dlopen("./zlib/libz.so", RTLD_NOW);
@@ -503,72 +532,54 @@ char *decompress(char *directory, FILE *logfile, int log, bool isonlygz, const c
 	if (!handle) {
 		error=dlerror();
 		printf("Erreur dans le chargement de zlib : dlerror() = %s\n", error);
-		if (log==1) fprintf(logfile, "[Archive %s] Code retour du open : %s\n", directory, error);
+		if (logflag==1) {
+			fprintf(logfile, "[Archive %s] Code retour du open : %s\n", folder, error);
+			fclose(logfile);
+		}
 		exit(EXIT_FAILURE);
 	}
 	
 	//On récupère les fonctions utiles à la décompression avec dlsym
 	gzopen=dlsym(handle, "gzopen");
 	erroropen=dlerror();
-	if (log==1) fprintf(logfile, "[Archive %s] Code retour du dlsym(gzopen) : %s\n", directory, erroropen);
+	if (logflag==1) fprintf(logfile, "[Archive %s] Code retour du dlsym(gzopen) : %s\n", folder, erroropen);
+	gzrewind=dlsym(handle, "gzrewind");
+	errorrewind=dlerror();
+	if (logflag==1) fprintf(logfile, "[Archive %s] Code retour du dlsym(gzrewind) : %s\n", folder, errorrewind);
+	gzeof=dlsym(handle, "gzeof");
+	erroreof=dlerror();
+	if (logflag==1) fprintf(logfile, "[Archive %s] Code retour du dlsym(gzeof) : %s\n", folder, erroreof);
 	gzread=dlsym(handle, "gzread");
 	errorread=dlerror();
-	if (log==1) fprintf(logfile, "[Archive %s] Code retour du dlsym(gzread) : %s\n", directory, errorread);
+	if (logflag==1) fprintf(logfile, "[Archive %s] Code retour du dlsym(gzread) : %s\n", folder, errorread);
 	gzclose=dlsym(handle, "gzclose");
 	errorclose=dlerror();
-	if (log==1) fprintf(logfile, "[Archive %s] Code retour du dlsym(gzclose) : %s\n", directory, errorclose);
+	if (logflag==1) fprintf(logfile, "[Archive %s] Code retour du dlsym(gzclose) : %s\n", folder, errorclose);
 
 	//Cas d'erreur des dlsym
-	if (erroropen!=NULL || errorread!=NULL || errorclose!=NULL) {
+	if (erroropen!=NULL || errorread!=NULL || errorclose!=NULL || errorrewind!=NULL || erroreof!=NULL) {
 		printf("Erreur detectee par dlerror() : %s %s %s\n", erroropen, errorread, errorclose);
+		dlclose(handle);
+		if (logflag==1) fclose(logfile);
 		exit(EXIT_FAILURE);
 	}
-
-	//Open de l'archive avec la bibliothèque zlib
-	file=(*gzopen)(directory,"r");
-	
-	//Cas où l'open échoue.
-	if (file==NULL) {
-		printf("Erreur dans l'ouverture du gzfile\n");
-		if (log==1) fprintf(logfile, "[Archive %s] Echec de l'ouverture avec gzopen : code retour = NULL\n", directory);
-		exit(EXIT_FAILURE);
-	}
-
-	/* OPTIONNEL et NON NECESSAIRE. Semi-fonctionnel, developpement inutile pour le projet. */
-	//Cas de l'archive .gz (et pas .tar.gz) : écriture directe.
-	if (isonlygz==true) {
-		status=open(filenamegz, O_CREAT | O_WRONLY, S_IRWXU); //Il faudrait récupérer les permissions du fichier.
-		if (log==1) fprintf(logfile, "[Archive %s] Code retour du open : %d\n", directory, status);
-		data=malloc(1);
-		while ((stat=(*gzread)(file, data, 1))!=0) {
-			etat=write(status, data, 1);
-		}
-		if (log==1) fprintf(logfile, "[Archive %s] Code retour du gzread : %d\n", directory, stat);
-		if (log==1) fprintf(logfile, "[Archive %s] Code retour du write : %d\n", directory, etat);
-		etat=close(status);
-		if (log==1) fprintf(logfile, "[Archive %s] Code retour du close : %d\n", directory, etat);
-		free(data);
-		printf("%s\n", filenamegz);
-		//Etant donné que ce n'est pas censé être une utilisation normale de ptar, on termine le processus.
-		exit(EXIT_FAILURE);
-	}
-	/* FIN DU MODULE OPTIONNEL */
 	
 	/* ECRITURE dans un tube nommé, en vu de traitement dans traitement() */
 
-	//On donne un nom au tube 
-	pipename="tubedecompression.fifo";
+	//Le nom du tube nommé est passé en variable globale.
 
 	//Suppression d'un éventuel tube nommé du même nom déjà existant (qui ferait échouer le programme)
-	remove(pipename);	
+	remove(pipenamed);	
 	
 	//Création effective du tube nommé
-	pipstat = mkfifo(pipename, S_IRWXU | S_IRGRP | S_IWGRP);
-	if (log==1) fprintf(logfile, "[Archive %s] Code retour du mkfifo : %d\n", directory, pipstat);
+	pipstat = mkfifo(pipenamed, S_IRWXU | S_IRGRP | S_IWGRP);
+	if (logflag==1) fprintf(logfile, "[Archive %s] Code retour du mkfifo : %d\n", folder, pipstat);
 
 	//Cas d'erreur lors de la création du tube.
 	if (pipstat==-1) {
 		printf("Erreur dans la création du tube nommé (pour la décompression).\n");
+		dlclose(handle);
+		if (logflag==1) fclose(logfile);
 		exit(EXIT_FAILURE);
 	}
 
@@ -577,35 +588,88 @@ char *decompress(char *directory, FILE *logfile, int log, bool isonlygz, const c
 	
 	//Si on est dans le père, on termine ce processus afin que traitement() puisse continuer et ouvrir le tube de l'autre côté.
 	if (pid!=0) {
-		if (log==1) fprintf(logfile, "[Archive %s] Return du processus père ... pid : %d\n", directory, pid);
-		return pipename;
+		if (logflag==1) fprintf(logfile, "[Archive %s] Return du processus père ... pid : %d\n", folder, pid);
+		
+		//Déchargement de la bibliothèque dynamique.
+		dlclose(handle);
+
+		//Retour du nom du tube nommé permettant de l'ouvrir dans le père (post retour) 
+		return pipenamed;
 	} 
 	
 	//Sinon si on est dans le fils on continue : on écrit les données dans le tube puis le fils est kill.
 	else {
+		//On réouvre le logfile puisqu'on a changé de processus.
+		logfile=fopen("logfile.txt", "a");		
+		
+		//Open de l'archive avec la bibliothèque zlib
+		file=(*gzopen)(folder,"rb");
+		
+		//On rembobine la tête de lecture au cas où
+		(*gzrewind)(file);
+
+		//Cas où l'open échoue.
+		if (file==NULL) {
+			printf("Erreur dans l'ouverture du gzfile\n");
+			if (logflag==1) {
+				fprintf(logfile, "[Archive %s] Echec de l'ouverture avec gzopen : code retour = NULL\n", folder);
+				fclose(logfile);
+			}
+			exit(EXIT_FAILURE);
+		}
+
+		/* OPTIONNEL et NON NECESSAIRE. Semi-fonctionnel, developpement inutile pour le projet. */
+		//Cas de l'archive .gz (et pas .tar.gz) : écriture directe.
+		if (isonlygz==true) {
+			status=open(filenamegz, O_CREAT | O_WRONLY, S_IRWXU); //Il faudrait récupérer les permissions du fichier.
+			if (logflag==1) fprintf(logfile, "[Archive %s] Code retour du open : %d\n", folder, status);
+			data=malloc(1);
+			while (!gzeof(file)) {
+				stat=(*gzread)(file, data, 1);
+				etat=write(status, data, 1);
+			}
+			if (logflag==1) fprintf(logfile, "[Archive %s] Code retour du gzread : %d\n", folder, stat);
+			if (logflag==1) fprintf(logfile, "[Archive %s] Code retour du write : %d\n", folder, etat);
+			etat=close(status);
+			if (logflag==1) {
+				fprintf(logfile, "[Archive %s] Code retour du close : %d\n", folder, etat);
+				fclose(logfile);
+			}
+			free(data);
+			printf("%s\n", filenamegz);
+			//Etant donné que ce n'est pas censé être une utilisation normale de ptar, on termine le processus.
+			exit(EXIT_FAILURE);
+		}
+		/* FIN DU MODULE OPTIONNEL */
+
 		//Ouverture de l'entrée du tube nommé.
-		entreetube=open(pipename, O_WRONLY);
-		if (log==1) fprintf(logfile, "[Archive %s] Code retour du open du tube : %d\n", directory, entreetube);
+		entreetube=open(pipenamed, O_WRONLY);
+		if (logflag==1) fprintf(logfile, "[Archive %s] Code retour du open du tube : %d\n", folder, entreetube);
 
 		//Cas d'erreur lors de l'ouverture de l'entrée du tube.
 		if (entreetube==-1) {
 			printf("Erreur dans l'ouverture (de l'entrée) du tube nommé (pour la décompression).\n");
+			if (logflag==1) fclose(logfile);
 			exit(EXIT_FAILURE);
 		}
 	
 		//Comme dans une archive tar tout est "rangé" dans des blocs de 512 octets, on lit donc par 512 octets.
 		data=malloc(512);
-		while ((stat=(*gzread)(file, data, 512))!=0) {
-			status=write(entreetube, data, 512);
+		while (!gzeof(file)) {
+			stat=(*gzread)(file, data, sizeof(data));
+			status=write(entreetube, data, sizeof(data));
 		}
 		free(data); 
-		if (log==1) fprintf(logfile, "[Archive %s] Code retour du dernier gzread : %d\n", directory, stat);
-		if (log==1) fprintf(logfile, "[Archive %s] Code retour du dernier write : %d\n", directory, status);
+		if (logflag==1) fprintf(logfile, "[Archive %s] Code retour du dernier gzread : %d\n", folder, stat);
+		if (logflag==1) fprintf(logfile, "[Archive %s] Code retour du dernier write : %d\n", folder, status);
 
 
 		//Close du .tar.gz
 		etat=(*gzclose)(file);
-		if (log==1) fprintf(logfile, "[Archive %s] Code retour du gzclose : %d\n", directory, etat);
+		if (logflag==1) {
+			fprintf(logfile, "[Archive %s] Code retour du gzclose : %d\n", folder, etat);
+			if (logflag==1) fclose(logfile);
+		}
 
 		//Déchargement de la bibliothèque dynamique.
 		dlclose(handle);
@@ -616,6 +680,7 @@ char *decompress(char *directory, FILE *logfile, int log, bool isonlygz, const c
 
 		//Exit si erreur (normalement jamais atteint à cause du kill précédent);
 		printf("Une erreur est survenu lors du kill du processus fils...");
+		if (logflag==1) fclose(logfile);
 		exit(EXIT_FAILURE);
 	}
 }
