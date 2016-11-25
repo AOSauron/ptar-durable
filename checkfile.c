@@ -111,7 +111,13 @@ Retourne true si il existe, false sinon.
 */
 
 bool existe(char *folder) {
-	folder="";
-	strcpy(folder, "tglewarning");
-	return true;
+
+	//struct stat s;
+
+	//if (stat(folder, &s) == 0) {
+  //	return false;
+	//}
+	//else {
+  //	return true;
+	//}
 }

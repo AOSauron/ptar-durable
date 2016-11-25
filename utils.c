@@ -132,7 +132,7 @@ int traitement(char *folder) {
 		return postdecomp;
 		*/
 
-		/*  Stratégie considérant un bon ordre en tar.gz (ce que n'est pas le cas des exemples)  */
+		/*  Stratégie considérant un bon ordre en tar.gz (ce que n'est pas le cas de nos exemples)  */
 
 		//Ouverture de la sortie du tube nommé.
 		file=open(pipename, O_RDONLY);
@@ -140,7 +140,7 @@ int traitement(char *folder) {
 		//On attend le processus fils qui écrit dans le tube nommé.
 		waitpid(-1, &waitstatus, 0);
 
-		/*      fin stratégie       */
+		/*      fin stratégie de base       */
 
 	}
 
@@ -609,6 +609,11 @@ const char *decompress(char *folder, FILE *logfile, bool isonlygz, const char *f
 
 	//Chargement de la bibliothèque zlib avec dlopen.
 	handle=dlopen("./zlib/libz.so", RTLD_NOW);
+
+	//Solution bricolée pour le test blanc: On suppose que si ça ne marche pas, c'est qu'on essaie de charger depuis un sous dossier.
+	if (!handle) {
+		handle=dlopen("../zlib/libz.so", RTLD_NOW);
+	}
 
 	//Gestion du cas ou la bibliothèque ne charge pas.
 	if (!handle) {
