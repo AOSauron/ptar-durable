@@ -43,36 +43,42 @@ int traitement(char *folder) {
 	/*
 	Déclarations et initialisation des variables
 	*/
-	
-	struct header_posix_ustar head;	//Structure des header tar POSIX ustar.
-	struct utimbuf tm; 	   			//Structure pour le utime final des dossiers
 
-	char *data; 		   			//Buffer pour les données suivant le header.
-	const char *pipename;			//Nom du tube nommé utilisé lors de la décompression.
-	char dirlist[TAILLELISTE][100];  	//Liste des dossiers. Défini à 1024 max mais on peut monter ce nombre. Longueur de 100 max pour le nom.
-	
-	bool isEOF; 					//Flag d'End Of File.
+	headerTar head;										//Structure des header tar POSIX ustar.
+	//gzHeadertype composition;				//Structure retournée par la fonction analyse(), il s'agit de headers classés et de compteurs: voir sorting.h.
+	FILE *logfile; 										//Logfile de l'extraction/decompression/analyse (codes de retour des open, symlink, mkdir, etc).
+	struct utimbuf tm; 	   						//Structure pour le utime final des dossiers.
 
-	int file;
-	int status;
-	int extreturn;	     				//Valeur de retour de extraction()
-	int postdecomp;				//Valeur de retour de traitepostdecomp() de sorting.h
-	int mtimes[TAILLELISTE];   		//Liste des mtime, associé au premier tableau (dans l'ordre).
-	int nbdir; 		     				//Nombre de dossiers
-	int utim;
-	int typeflag;
-	int mtime;
-	int k;
-	int size;
-	int size_reelle;
+	char *data; 		   								//Buffer pour les données suivant le header.
+	char dirlist[PATH_LENGTH][100];		//Liste des dossiers. La taille du folder est limitée à 100 octets.
+	const char *pipename;							//Nom du tube nommé utilisé lors de la décompression, retourné par decompress().
 
-	FILE *logfile; 					//logfile de l'extraction/decomp (codes de retour des open, symlink, mkdir, etc).
+	bool isEOF; 											//Flag d'End Of File.
+	bool isCorrupted;									//Flag de checksum : true <=> header corrompu.
 
-	gzHeadertype composition;		//Structure particulière, voir sorting.h
+	int *mtimes;								   		//Liste des mtime, associé au premier tableau (dans l'ordre). Taille variable (par des realloc).
+	int *mtimestemp;									//Buffer temporaire pour realloc(mtimes).
+	int file;													//Descripteur de fichier retourné par l'open de l'archive.
+	int status;												//Valeur de retour des read() successifs dans la boucle principale : 0 <=> EOF, -1 <=> erreur.
+	int waitstatus;										//Status pour le waitpid.
+	int extreturn;	     							//Valeur de retour de extraction().
+	//int postdecomp;									//Valeur de retour de traitepostdecomp() de sorting.h.
+	int nbdir; 		     								//Nombre de dossiers (sert au utime final).
+	int utim;													//Valeur de retour des utime() finaux pour les dossiers.
+	int typeflag;											//Le type de fichier : 0 = fichier, 2 = lien symbolique, 5 = dossier.
+	int mtime;												//Date de modification en secondes depuis l'Epoch (valeur décimale).
+	int k;														//Indice pour la boucle for du utime final des dossiers.
+	int size;													//Taille du champ size du header, c'est la taille des données suivant le header.
+	int size_reelle;									//Taille des données utiles suivant le header, multiple de 512, puisque les données sont stockées dans des blocks de 512 octets.
+
+	//Initialisation des tableaux dynamiques à NULL pour les realloc (obligatoire).
+	mtimes=NULL;
+	mtimestemp=NULL;
 
 	nbdir=0;
 	size_reelle=0;
 	isEOF=false;
+	isCorrupted=false;
 
 
 	/*
@@ -88,14 +94,14 @@ int traitement(char *folder) {
 	*/
 
 	if (checkfile(folder, logfile)==false) {
-		//Les messages d'erreurs sont gérés dans checkfile.c. 
+		//Les messages d'erreurs sont gérés dans checkfile.c.
 		//Si l'archive est seulement compressée, tente une décompression directe: ptar n'est pas prévu pour cela, ce module est donc en bêta (développement inutil)
 		if(logflag==1) fclose(logfile);
 		return 1;
 	}
-	
+
 	/*
-	Ouverture de l'archive
+	Gestion du cas d'une archive compressée .tar.gz
 	*/
 
 	//On ouvre l'archive tar avec open() et le flag O_RDONLY (read-only). Si option -z, on décompresse, récupère les données dans un tube et on ouvre ce tube nommé.
@@ -105,9 +111,10 @@ int traitement(char *folder) {
 		pipename=decompress(folder, logfile, false, NULL);
 
 		/*  sorting.h  */
+		/* Stratégie trop gourmande en mémoire
 		//L'ouverture de la sortie du tube nommé se fait dans analyse(), tout comme le waitpid (sinon le programme se mettrais à lire avant la fin de l'écriture).
-		composition=analyse(pipename, logfile);				//Analyse l'archive et retourne une structure adaptée.
-		tribulle(composition);							//Effectue un tri à bulle sur la profondeur des dossiers.
+		composition=analyse(pipename, logfile);							//Analyse l'archive et retourne une structure adaptée.
+		tribulle(composition);															//Effectue un tri à bulle sur la profondeur des dossiers.
 		postdecomp=traitepostdecomp(composition, logfile);	//Effectue les traitements grâce aux fonctions extraction() et listing().
 
 		//On n'oublie pas de libérer la mémoire allouée.
@@ -116,9 +123,31 @@ int traitement(char *folder) {
 		free(composition.headSymlink);
 		free(composition.datas);
 
+		//On supprime le tube nommé.
+		status=remove(pipename);
+		if (logflag==1) fprintf(logfile, "[Fichier %s] Code retour du remove : %d\n", folder, status);
+		if (logflag==1) fclose(logfile);
+
 		//Retourne la valeur de retour de traitepostdecomp(), soit 0 (ok) ou 1 (au moins 1 erreur).
 		return postdecomp;
+		*/
+
+		/*  Stratégie considérant un bon ordre en tar.gz (ce que n'est pas le cas des exemples)  */
+
+		//Ouverture de la sortie du tube nommé.
+		file=open(pipename, O_RDONLY);
+
+		//On attend le processus fils qui écrit dans le tube nommé.
+		waitpid(-1, &waitstatus, 0);
+
+		/*      fin stratégie       */
+
 	}
+
+	/*
+	Gestion d'une archive non compressée .tar
+	*/
+
 	else {
 		file=open(folder, O_RDONLY);
 	}
@@ -129,7 +158,7 @@ int traitement(char *folder) {
 		close(file);
 		if (logflag==1) fclose(logfile); //Aussi le logfile.
 		return 1;
-	}	
+	}
 
 	/*
 	Traitement de chaque header les uns après les autres
@@ -153,16 +182,16 @@ int traitement(char *folder) {
 		}
 
 		/* La fin d'une archive tar se termine par 2 enregistrements d'octets valant 0x0. (voir tar(5))
-		Donc la string head.name du premier des 2 enregistrement est forcément vide. 
+		Donc la string head.name du premier des 2 enregistrement est forcément vide.
 		On s'en sert donc pour détecter la fin du fichier (End Of File) et ne pas afficher les 2 enregistrements de 0x0. */
 
 		//Détection de l'End Of File : met le flag isEOF à true et stoppe la boucle. Le flag est destiné à aider les développeurs (il ne sert pas à stopper la boucle)
 		if (strlen(head.name)==0 || status==0) {
-			isEOF=true; 
+			isEOF=true;
 			break;
 		}
-		
-		
+
+
 		//Cas où le fichier passé en paramètre n'est pas une archive tar POSIX ustar : vérification avec le champ magic du premier header.
 		//Si le premier header est validé, alors l'archive est conforme et ce test ne devrait pas être infirmé quelque soient les header suivant, par construction.
 		if (strcmp("ustar", head.magic)!=0 && strcmp("ustar  ", head.magic)!=0) {
@@ -171,14 +200,22 @@ int traitement(char *folder) {
 			close(file);
 			return 1;
 		}
-		
-		//Récupération du type d'élément.
-		typeflag=strtol(head.typeflag, NULL, 10);
+
+		/*
+		Vérification de la somme de contrôle (checksum)
+		*/
+
+		isCorrupted=checksum(&head);
+
+		if (isCorrupted==true) {
+			printf("La somme de contrôle (checksum) de %s est invalide.\n", head.name);
+			break;
+		}
 
 		/*
 		Récupération des data (dans le cas d'un fichier non vide).
 		*/
-		
+
 		//On récupère la taille (head.size) des données suivant le header. La variable head.size est une string, contenant la taille donnée en octal, convertit en décimal.
 		size=strtol(head.size, NULL, 8);
 
@@ -191,14 +228,14 @@ int traitement(char *folder) {
 				size_reelle=size; // Il faut sortir les cas particuliers multiples de 512. (Sinon il y aura 1 bloc de 512 octets en trop)
 			}
 			else {
-				size_reelle=512*((int)(size/512)+1);  //Utiliser (int)variable car c'est des int (floor est utilisé pour des double renvoyant un double)
+				size_reelle=512*((int)(size/512)+1);  // En castant avec (int) cela agit comme une partie entière. Ce n'est pas nécessaire mais plus sûr.
 			}
-				
+
 			//On n'alloue de la mémoire que si on a besoin des données (c'est-à-dire si on souhaite extraire)
 			if (extract==1 || decomp==1) {
 				//On utilise le buffer data pour le read() des données pour l'extraction
 				data=malloc(size_reelle);
-			
+
 				//On récupère les données suivant le buffer, elles vont servir pour l'extraction
 				status=read(file, data, size_reelle);
 
@@ -226,57 +263,86 @@ int traitement(char *folder) {
 		Traitement du listing du header (détaillé -l ou non)
 		*/
 
-		if (listingd==1) { //Listing détaillé :
+		//Listing détaillé :
+		if (listingd==1) {
 			listing(head);
 		}
-		else { //Listing basique :
-			printf("%s\n", head.name); 
+		//Listing basique :
+		else {
+			printf("%s\n", head.name);
 		}
 
-		/* 
+		/*
 		Traitement de l'extraction -x de l'élément lié au header
 		*/
 
-		if (extract==1) {		
-			
+		if (extract==1) {
+
 			//Récupération du type d'élément.
 			typeflag=strtol(head.typeflag, NULL, 10);
-		
+
 			//Récupération du nom dans un tableau si c'est un dossier (et de son mtime)
 			if (typeflag==5) {
-				mtime=strtol(head.mtime, NULL, 8);
+
+				//Réalloc de dirlist
+				//dirlist=realloc(&dirlist,(nbdir+1)*sizeof(char));
+				/*
+				if (dirlisttemp==NULL) {
+							free(dirlist);    //Désallocation
+							printf("Problème de réallocation du tableau de dossier (utime final).\n");
+							break;
+				}
+				else dirlist=dirlisttemp;*/
+
+				//On récupère le nom
+				//dirlist[nbdir]=(char *)malloc(sizeof(char)*100);
+				//dirlist2=(char *)head.name;
+				//dirlist[nbdir]=&dirlist2[nbdir*strlen(head.name)];
 				strcpy(dirlist[nbdir], head.name);
+
+				//On incrémente le nombre de char
+				//nbchar=nbchar+sizeof(head.name);
+
+				//printf("NOM : %s\n", dirlist[nbdir]);
+
+				//Réalloc de mtimes
+				mtime=strtol(head.mtime, NULL, 8);
+				mtimestemp=realloc(mtimes, (nbdir+1)*sizeof(int));
+				if (mtimestemp==NULL) {
+							free(mtimes);    //Désallocation
+							printf("Problème de réallocation du tableaux des mtime.\n");
+							break;
+				}
+				else mtimes=mtimestemp;
+
+				//Récupération à proprement parler.
+				mtime=strtol(head.mtime, NULL, 8);
 				mtimes[nbdir]=mtime;
-				nbdir++; //Incrémentaion du nombre de dossiers
+				nbdir++; //Incrémentaion du nombre de dossiers (représente enfait l'indice dans les tableaux)
 			}
 
 			//Extraction de l'élément.
 			extreturn=extraction(head, NULL, data, logfile);
-			
+
 			if (logflag==1) fprintf(logfile, "Retour d'extraction de %s : %d\n", head.name, extreturn);
 		}
 
-		/*
-		Traitement de la durabilité et de la parallélisation sur nthreads -p
-		*/
-
 		if (thrd==1) {
 			nthreads=0; // JUSTE POUR FAIRE TAIRE CE WARNING UNUSED PARAMETER
-			//printf("Parallélisation à faire !\n");
 		}
 
 	} while (isEOF==false);  //On aurait pu mettre while(1) puisque la boucle doit normalement se faire breaker plus haut.
-	
+
 	/*
 	Fin des traitements
 	*/
 
-	//Fermeture de l'archive.
+	//Fermeture de l'archive/tube nommé suivant le cas.
 	close(file);
 
-	//Suppression du tube nommé post-décompression
+	//Suppression du tube nommé si il a été créé biensur.
 	if (decomp==1) {
-		status=remove(pipenamed);
+		status=remove(pipename);
 		if (logflag==1) fprintf(logfile, "[Fichier %s] Code retour du remove : %d\n", folder, status);
 	}
 
@@ -286,18 +352,24 @@ int traitement(char *folder) {
 			tm.actime=mtimes[k];
 			tm.modtime=mtimes[k];
 			utim=utime(dirlist[k], &tm);
-			//Ajout des derniers retour d'utime() dans le logfile.
 			if (logflag==1) fprintf(logfile, "[Dossier %s] Code retour du utime : %d\n", dirlist[k], utim);
 		}
+		//Free des pointeurs utilisés pour l'extraction des dossiers.
+		free(mtimes);
 	}
 
 	//Fermeture du logfile
 	if (logflag==1) {
+		fputs("Les sommes de contrôle (checksum) sont toutes valides.\n", logfile);
 		fputs("Fin de decompression/extraction.\n\n", logfile);
 		fclose(logfile);
 	}
 
-	return 0;
+	//Si l'archive est corrompu, ptar doit renvoyer 1
+	if (isCorrupted==true) return 1;
+
+	//Sinon normalement tout s'est bien passé, et ptar renvoie 0.
+	else return 0;
 }
 
 
@@ -309,11 +381,11 @@ option = Options du fopen (normalement "a" pour faire un ajout en fin de fichier
 */
 
 FILE *genlogfile(const char *logname, const char *option, char *filename) {
-	
+
 	struct tm instant;
 	time_t secondes;
 	FILE *logfile;
-	
+
 	time(&secondes);
 	instant=*localtime(&secondes);
 	logfile=fopen(logname, option);
@@ -328,8 +400,8 @@ FILE *genlogfile(const char *logname, const char *option, char *filename) {
 Traite le listing détaillé des éléments (regular files, directory, symbolic links).
 */
 
-int listing(struct header_posix_ustar head) {
-	
+int listing(headerTar head) {
+
 	time_t mtime;
 	struct tm ts;
 	char bmtime[80];
@@ -339,7 +411,7 @@ int listing(struct header_posix_ustar head) {
 	int uid;
 	int gid;
 	int typeflag;
-	
+
 	//Récupération de la taille (comme dans le main)
 	size=strtol(head.size, NULL, 8);
 
@@ -369,15 +441,15 @@ int listing(struct header_posix_ustar head) {
     	printf( (mode & S_IXGRP) ? "x" : "-");
     	printf( (mode & S_IROTH) ? "r" : "-");
     	printf( (mode & S_IWOTH) ? "w" : "-");
-  	printf( (mode & S_IXOTH) ? "x" : "-");
+  		printf( (mode & S_IXOTH) ? "x" : "-");
 
 	//Print des autres informations : uid, gid, taille, date de modification, nom, et nom du fichier linké (vide si ce n'est pas un lien symbo)
 
-	/* 
+	/*
 	Ceci produit deux espaces en fin de ligne si l'élément n'est pas un symlink, et fait donc échouer la détection aux test blancs. (reste correct cela dit)
 	printf(" %d/%d %d %s %s %s %s\n", uid, gid, size, bmtime, head.name, (typeflag==2) ? "->" : "", (typeflag==2) ? head.linkname : "");
 	*/
-	
+
 	if (typeflag==2) printf(" %d/%d %d %s %s -> %s\n", uid, gid, size, bmtime, head.name, head.linkname);
 	else printf(" %d/%d %d %s %s\n", uid, gid, size, bmtime, head.name);
 
@@ -390,17 +462,17 @@ int listing(struct header_posix_ustar head) {
 Traite l'extraction des éléments (regular files, directory, symbolic links)
 */
 
-int extraction(struct header_posix_ustar head, const char *name, char *data, FILE *logfile) {
+int extraction(headerTar head, const char *name, char *data, FILE *logfile) {
 
 	struct timeval *tv;
-	
+
 	int mode;
 	int size;
 	int uid;
 	int gid;
 	int mtime;
 
-	//Code de retour des open/write/close/symlink/mkdir/setuid/setgid/utimes/lutimes - A lire dans logfile.txt		
+	//Code de retour des open/write/close/symlink/mkdir/setuid/setgid/utimes/lutimes - A lire dans logfile.txt
 	int etat;
 	int file;
 	int writ;
@@ -408,7 +480,7 @@ int extraction(struct header_posix_ustar head, const char *name, char *data, FIL
 	int etatgid;
 	int sync;
 	int utim;
-	
+
 	//Nécessaire d'initialiser ces flags car pas initialisés dans tous les cas (et causent un 'faux' return -1 dans certains cas).
 	file=0;
 	writ=0;
@@ -416,10 +488,10 @@ int extraction(struct header_posix_ustar head, const char *name, char *data, FIL
 	utim=0;
 
 	//Récupération du mtime en secondes depuis l'Epoch. (voir tar(5))
-	mtime=strtol(head.mtime, NULL, 8);	
+	mtime=strtol(head.mtime, NULL, 8);
 
 	//On set les champs de la structure timeval[2] pour utimes() et lutimes().
-	tv=malloc(2*sizeof(struct timeval));	
+	tv=malloc(2*sizeof(struct timeval));
 	tv[0].tv_sec=mtime;
 	tv[0].tv_usec=0;
 	tv[1].tv_sec=mtime;
@@ -494,7 +566,7 @@ int extraction(struct header_posix_ustar head, const char *name, char *data, FIL
 			printf("Elément inconnu par ptar : Typeflag = [%c]\n", head.typeflag[0]);
 			return -1;
 	}
-	
+
 	//Code de retour de extraction (évolutif, rajouter éventuellement des cas de return -1)
 	if (etat<0  || file<0 || writ<0 || etatuid<0 || etatgid<0 || sync<0 || utim<0) {
 		return -1;
@@ -529,7 +601,7 @@ const char *decompress(char *folder, FILE *logfile, bool isonlygz, const char *f
 	int stat;
 	int etat;
 	int pipstat;
-	int entreetube; 	//Entrée du tube nommé. (retourné par la fonction)
+	int entreetube; 			//Entrée du tube nommé. (retourné par la fonction)
 	pid_t pid;        		//pid pour le fork, permet à la fonction de terminer pour ouvrir le tube de l'autre côté.
 	pid_t fpid;       		//pid du processus fils, on va lui envoyer un signal pour lui dire que ce processus (le père) a terminé.
 
@@ -548,7 +620,7 @@ const char *decompress(char *folder, FILE *logfile, bool isonlygz, const char *f
 		}
 		exit(EXIT_FAILURE);
 	}
-	
+
 	//On récupère les fonctions utiles à la décompression avec dlsym
 	gzopen=dlsym(handle, "gzopen");
 	erroropen=dlerror();
@@ -573,14 +645,14 @@ const char *decompress(char *folder, FILE *logfile, bool isonlygz, const char *f
 		if (logflag==1) fclose(logfile);
 		exit(EXIT_FAILURE);
 	}
-	
+
 	/* ECRITURE dans un tube nommé, en vu de traitement dans traitement() */
 
 	//Le nom du tube nommé est passé en variable globale.
 
 	//Suppression d'un éventuel tube nommé du même nom déjà existant (qui ferait échouer le programme)
-	remove(pipenamed);	
-	
+	remove(pipenamed);
+
 	//Création effective du tube nommé
 	pipstat = mkfifo(pipenamed, S_IRWXU | S_IRGRP | S_IWGRP);
 	if (logflag==1) fprintf(logfile, "[Archive %s] Code retour du mkfifo : %d\n", folder, pipstat);
@@ -595,26 +667,24 @@ const char *decompress(char *folder, FILE *logfile, bool isonlygz, const char *f
 
 	//fork du processus, le père va servir à lancer l'ouverture de la sortie du tube dans le programme appelant.
 	pid=fork();
-	
+
 	//Si on est dans le père, on termine ce processus afin que traitement() puisse continuer et ouvrir le tube de l'autre côté.
 	if (pid!=0) {
 		if (logflag==1) fprintf(logfile, "[Archive %s] Return du processus père ... pid : %d\n", folder, pid);
-		
+
 		//Déchargement de la bibliothèque dynamique.
 		dlclose(handle);
 
-		//Retour du nom du tube nommé permettant de l'ouvrir dans le père (post retour) 
+		//Retour du nom du tube nommé permettant de l'ouvrir dans le père (post retour)
 		return pipenamed;
-	} 
-	
+	}
+
 	//Sinon si on est dans le fils on continue : on écrit les données dans le tube puis le fils est kill.
 	else {
-		//On réouvre le logfile puisqu'on a changé de processus.
-		logfile=fopen("logfile.txt", "a");		
-		
+
 		//Open de l'archive avec la bibliothèque zlib
 		file=(*gzopen)(folder,"rb");
-		
+
 		//On rembobine la tête de lecture au cas où
 		(*gzrewind)(file);
 
@@ -662,14 +732,14 @@ const char *decompress(char *folder, FILE *logfile, bool isonlygz, const char *f
 			if (logflag==1) fclose(logfile);
 			exit(EXIT_FAILURE);
 		}
-	
+
 		//Comme dans une archive tar tout est "rangé" dans des blocs de 512 octets, on lit donc par 512 octets.
 		data=malloc(512);
 		while (!gzeof(file)) {
 			stat=(*gzread)(file, data, sizeof(data));
 			status=write(entreetube, data, sizeof(data));
 		}
-		free(data); 
+		free(data);
 		if (logflag==1) fprintf(logfile, "[Archive %s] Code retour du dernier gzread : %d\n", folder, stat);
 		if (logflag==1) fprintf(logfile, "[Archive %s] Code retour du dernier write : %d\n", folder, status);
 
@@ -693,4 +763,57 @@ const char *decompress(char *folder, FILE *logfile, bool isonlygz, const char *f
 		if (logflag==1) fclose(logfile);
 		exit(EXIT_FAILURE);
 	}
+}
+
+
+
+/*
+Sert à vérifier la non-corruption d'une archive tar après sont téléchargement.
+Vérifie la somme de contrôle stockée dans le header passé en paramère.
+Pour cela, recalcule le checksum du header et le compare au champs checksum sur header.
+Avant la comparaison. on applique un masque 0x3FFFF au checksum calculé car seul les 18 bits de poids faible
+nous importent ici pourla comparaison. Pour cela on utilise un ET bit-à-bit. Ce n'est pas nécessaire dans la
+plupart des cas mais c'est plus sûr pour la comparaison da
+Retourne false si le cheader n'est pas corrompu, true sinon.
+*/
+
+bool checksum(headerTar *head) {
+
+	int i;
+	unsigned int chksum;
+	unsigned int chksumtotest;
+	char *pHeader;
+
+	chksum=0;
+	chksumtotest=0;
+
+	//On récupère le champs checksum du header, il est en octal ASCII.
+	chksumtotest = strtol(head->checksum, NULL, 8);
+
+	//On cast le header sous la forme d'un pointeur sur char.
+	pHeader = (char *)head;
+
+	//On boucle sur les caractères en s'arretant avant le champ checksum.
+	for (i=0; i<148; i++) {
+		chksum = chksum+(unsigned int)pHeader[i];
+	}
+
+	//Ici on ne tient pas du champ checksum (pour des raisons évidentes...). On considère que c'est 8 blancs de valeur décimale 32 en ASCII
+	for (i=148; i<156; i++) {
+		chksum = chksum+32;
+	}
+
+	//Et on finit de boucler sur le reste des caractères.
+	for (i=156; i<512; i++) {
+		chksum = chksum+(unsigned int)pHeader[i];
+	}
+
+	//On ne garde que les 18 bits de poids faible en appliquant un masque. Ce n'est pas absolument nécessaire mais c'est plus sûr pour la comparaison.
+	chksum = chksum & 0x3FFFF;
+
+	//Comparaison effective
+	if (chksum!=chksumtotest) {
+		return true;
+	}
+	else return false;
 }

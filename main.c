@@ -1,5 +1,5 @@
 //////////////////////////////////////////////////////////   ptar - Extracteur d'archives durable et parallèle  ///////////////////////////////////////////////////////////////////
-///////////////////////////////////////////////////////////////////////   v 1.5.1.0        23/11/2016   //////////////////////////////////////////////////////////////////////////////////////
+///////////////////////////////////////////////////////////////////////   v 1.6.0.0        24/11/2016   ///////////////////////////////////////////////////////////////////////////////////
 
 #include <stdio.h>
 #include <stdlib.h>
@@ -13,8 +13,8 @@ int main(int argc, char *argv[]) {
 	Déclarations et initialisation des variables
 	*/
 
-	int opt;
-	int status;
+	int opt;			//Valeur de retour de getopt().
+	int status;		//Valeur de retour de traitement().
 
 	//Initialisation des flags des options de ligne de commande. Ce sont des variables globales dans utils.h
 	thrd=0;
@@ -63,18 +63,16 @@ int main(int argc, char *argv[]) {
 		}
 	}
 
-	//printf("Falgs  :  extract=%d; listing=%d; decomp=%d; thrd=%d; NTHREADS=%d; optind=%d\n", extract, listingd, decomp ,thrd, nthreads, optind); - DEBUG
-	
 	//Pour l'option -p, attente d'un argument pour p (et ce sera forcément un int à cause du test dans le case 'p')
 	if (optind >= argc) {
-		printf("Arguments attendus après options\n"); 
+		printf("Arguments attendus après options\n");
 		return 1;
 	}
 
 	/*
 	Traitement effectif de l'archive
 	*/
-	
+
 	status = traitement(argv[optind]);
 
 	if (status==1) {
@@ -83,4 +81,3 @@ int main(int argc, char *argv[]) {
 
 	return status;
 }
-

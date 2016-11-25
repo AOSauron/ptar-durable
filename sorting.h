@@ -17,15 +17,16 @@ Il arrive alors que certains dossiers arrivent avant leur dossiers parents (qui 
 /* Structure comprenant les 3 tableaux de header de chaque type (fichiers, dossiers, liens symboliques) et les données des fichiers */
 
 struct header_table {
-	struct header_posix_ustar *headDir;
-	struct header_posix_ustar *headFile;
-	struct header_posix_ustar *headSymlink;
-	char *datas;
-	int nbDir;
-	int nbFile;
-	int nbSymlink;
+	headerTar *headDir;				//Tableau des header de dossiers.
+	headerTar *headFile;			//Tableau des header de fichiers.
+	headerTar *headSymlink;		//Tableau des header de liens symboliques.
+	char *datas;							//Tableau des données suivant le header (si fichier non vide).
+	int nbDir;								//Nombre de dossiers.
+	int nbFile;								//Nombre de fichiers.
+	int nbSymlink;						//Nombre de liens symboliques.
 };
 
+//On fait un alias de la structure.
 typedef struct header_table gzHeadertype;
 
 

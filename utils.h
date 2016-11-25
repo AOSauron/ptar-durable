@@ -16,21 +16,21 @@ Correspondantes aux options suivantes :
 #ifndef INCLUDE_UTILS_H
 #define INCLUDE_UTILS_H
 
-#define TAILLELISTE 1024
+#define PATH_LENGTH 255     //Taille maximale pour un pathname fixée à 255 caractère (voir struct header_posix_ustar)
 
 #include <stdbool.h>
 
 
 /* Déclaration des variables globales : flags de ligne de commandes initialisés dans main et nom du tube nommé */
 
-static const char *pipenamed = "tubedecompression.fifo";		//Nom du tube nommé contenant les données décompressées.
+static const char *pipenamed = "tubedecompression.fifo";    //Nom du tube nommé contenant les données décompressées.
 
-int extract;	//Flags pour extraction (option -x)
-int listingd;	//Flags pour listing détaillé (option -l)
-int decomp;	//Flags pour décompression (option -z)
-int logflag; 	//Flags pour logfile (option -e)
-int thrd;		//Flags pour parallélisation (option -p)
-int nthreads;	//Nombre de threads (option -p)
+int extract;	                                              //Flags pour extraction (option -x)
+int listingd;	                                              //Flags pour listing détaillé (option -l)
+int decomp;	                                                //Flags pour décompression (option -z)
+int logflag; 	                                              //Flags pour logfile (option -e)
+int thrd;		                                                //Flags pour parallélisation (option -p)
+int nthreads;	                                              //Nombre de threads (option -p)
 
 
 /*
@@ -39,24 +39,27 @@ Format standard pour les archives tar selon la norme ustar POSIX.1
 */
 
 struct header_posix_ustar {
-                   char name[100];
-                   char mode[8];
-                   char uid[8];
-                   char gid[8];
-                   char size[12];
-                   char mtime[12];
-                   char checksum[8];
-                   char typeflag[1];
-                   char linkname[100];
-                   char magic[6];
-                   char version[2];
-                   char uname[32];
-                   char gname[32];
-                   char devmajor[8];
-                   char devminor[8];
-                   char prefix[155];
-                   char pad[12];
+          char name[100];        //Nom de l'élément.
+          char mode[8];          //Permissions de l'élément.
+          char uid[8];           //User ID de l'élément.
+          char gid[8];           //Group ID de l'élément.
+          char size[12];         //Taille des données suivant le header. Est différent de 0 seulement si il s'agit d'un fichier non vide.
+          char mtime[12];        //Date de modification de l'élément.
+          char checksum[8];      //Somme de contrôle du header.
+          char typeflag[1];      //Type d'élément : on ne gère que 0 (fichier), 2 (lien symbolique) et 5 (dossier).
+          char linkname[100];    //Nom du fichier auquel fait référence le lien symbolique.
+          char magic[6];         //Champs contenant "ustar\0" si il s'agit d'une archive ustar (sert à vérifier si il s'agit d'une archive tar).
+          char version[2];       //Version. Normalement valant "00" ASCII pour des archives POSIX tar standardes.
+          char uname[32];        //User name lié au User ID de l'élément. (habituellement le nom d'utilisateur propriétaire de l'élément)
+          char gname[32];        //Groupe name lié au Groupe ID de l'élément.
+          char devmajor[8];      //Inutile ici. (pour typeflag 4).
+          char devminor[8];      //Inutile ici. (pour typeflag 4).
+          char prefix[155];      //Espace supplémentaire pour le nom (qui contient également le chemin d'accès) si il est trop long. Les octets inutilés valent NUL.
+          char pad[12];          //Padding pour prefix, valant aussi NULL si il n'y a pas de besoin d'espace supplémentaire.
 };
+
+//On crée un alias de cette structure pour éviter de répéter le mot-clé struct à chaque fois.
+typedef struct header_posix_ustar headerTar;
 
 
 /*
@@ -88,7 +91,7 @@ Print : permissions, uid/gid (= propriétaire/groupe), taille, mtime, liens symb
 Retourne 0.
 */
 
-int listing(struct header_posix_ustar head);
+int listing(headerTar head);
 
 
 
@@ -100,7 +103,7 @@ Si on veut forcer un nom de fichier, le spécifier dans le champ name, sinon met
 Retourne 0 si tout s'est bien passé, -1 sinon.
 */
 
-int extraction(struct header_posix_ustar head, const char *name, char *data, FILE *logfile);
+int extraction(headerTar head, const char *name, char *data, FILE *logfile);
 
 
 
@@ -115,6 +118,23 @@ Excepté pour le cas d'un fichier compressé au format .gz sans archivage, filen
 */
 
 const char *decompress(char *folder, FILE *logfile, bool isonlygz, const char *filenamegz);
+
+
+
+/*
+Sert à vérifier la non-corruption d'une archive tar après sont téléchargement.
+Vérifie la somme de contrôle stockée dans le header passé en paramètre :
+Pour cela, recalcule le checksum du header et le compare au champs checksum sur header.
+L'algorithme de calcul est le suivant : fait la somme de tous les bytes du header en remplaçant le champ header.checksum par
+une suite de 8 espace ASCII de valeur décimale 32.
+Avant la comparaison. on applique un masque 0x3FFFF au checksum calculé car seul les 18 bits de poids faible
+nous importent ici pourla comparaison. Pour cela on utilise un ET bit-à-bit. Ce n'est pas nécessaire mais
+c'est plus sûr pour la comparaison.
+Retourne true si le checksum est bon, false sinon.
+*/
+
+bool checksum(headerTar *head);
+
 
 
 #endif

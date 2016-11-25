@@ -31,27 +31,40 @@ Le paramètre doit être le tube nommé créé après la décompression.
 gzHeadertype analyse(const char *folder, FILE *logfile) {
 
 	gzHeadertype composition;
-	struct header_posix_ustar head;
-	struct header_posix_ustar *headersdir=NULL;
-	struct header_posix_ustar *headersfile=NULL;
-	struct header_posix_ustar *headerssymlink=NULL;
-	struct header_posix_ustar *ptrintermediaire=NULL;
-	char *datas=NULL;
-	char *buffintermediaire=NULL;
+	headerTar head;
+	headerTar *headersdir;
+	headerTar *headersfile;
+	headerTar *headerssymlink;
+	headerTar *ptrintermediaire;
+	char *datas;
+	char *buffintermediaire;
 
-	int nbdir=0;
-	int nbfile=0;
-	int nbsymlink=0;
-	int nbblocdata=0;
+	int nbdir;
+	int nbfile;
+	int nbsymlink;
+	int nbblocdata;
 	int fd;
 	int status;
 	int waitstatus;
 	int etat;
 	long size;
 
+	//Initialisation des tableaux dynamiques à NULL pour les realloc (obligatoire).
+	headersdir=NULL;
+	headersfile=NULL;
+	headerssymlink=NULL;
+	ptrintermediaire=NULL;
+	datas=NULL;
+	buffintermediaire=NULL;
+
+	nbdir=0;
+	nbfile=0;
+	nbsymlink=0;
+	nbblocdata=0;
+
 	//Ouverture de la sortie du tube nommé.
 	fd=open(folder, O_RDONLY);
-	
+
 	if (fd<0) {
 		printf("Problème d'ouverture de la sortie du tube nommé pour l'analyse.\n");
 		if (logflag==1) fclose(logfile);
@@ -82,7 +95,7 @@ gzHeadertype analyse(const char *folder, FILE *logfile) {
 			case '0' :
 				nbfile++;
 				ptrintermediaire=realloc(headersfile, 512*nbfile);
-				if (ptrintermediaire==NULL){
+				if (ptrintermediaire==NULL) {
 					free(headersfile);    //Désallocation
 					printf("Problème de réallocation lors de l'analyse.\n");
 					if (logflag==1) fclose(logfile);
@@ -103,7 +116,7 @@ gzHeadertype analyse(const char *folder, FILE *logfile) {
 					}
 					nbblocdata=nbblocdata+size/512;
 					buffintermediaire=realloc(datas, 512*nbblocdata);
-					if (buffintermediaire==NULL){
+					if (buffintermediaire==NULL) {
 					    	free(datas);    //Désallocation
 					    	printf("Problème de réallocation lors de l'analyse.\n");
 						if (logflag==1) fclose(logfile);
@@ -118,7 +131,7 @@ gzHeadertype analyse(const char *folder, FILE *logfile) {
 			case '2' :
 				nbsymlink++;
 				ptrintermediaire=realloc(headerssymlink, 512*nbsymlink);
-				if (ptrintermediaire==NULL){
+				if (ptrintermediaire==NULL) {
 				    	free(headerssymlink);    //Désallocation
 				    	printf("Problème de réallocation lors de l'analyse.\n");
 					if (logflag==1) fclose(logfile);
@@ -150,7 +163,7 @@ gzHeadertype analyse(const char *folder, FILE *logfile) {
 				exit(EXIT_FAILURE);
 				close(fd);
 		}
-		
+
 	} while (status>0);
 
 	//On met à jour la structure gzHeadertype
@@ -161,12 +174,9 @@ gzHeadertype analyse(const char *folder, FILE *logfile) {
 	composition.nbDir=nbdir;
 	composition.nbFile=nbfile;
 	composition.nbSymlink=nbsymlink;
-	
+
 	etat=close(fd);
-	if (logflag==1) {
-		fprintf(logfile, "Code de retour du close de la sortie du tube %s : %d\n", pipenamed, etat);
-		fclose(logfile);
-	}
+	if (logflag==1) fprintf(logfile, "Code de retour du close de la sortie du tube %s : %d\n", pipenamed, etat);
 
 	return composition;
 }
@@ -179,8 +189,8 @@ Trieur : trie les dossiers importent avec un tri à bulle classique.
 void tribulle(gzHeadertype composition) {
 
 	const char *delim;
-	
-	struct header_posix_ustar headtemp;
+
+	headerTar headtemp;
 
 	int i;
 	int j;
@@ -208,7 +218,7 @@ Compte le nombre de token séparés par le délimiteur passé en paramètre.
 int getnbtoken(char *name, const char *delim) {
 
 	char *token;
-	char bufname[100];
+	char bufname[255]; //Le name ne peut pas excéder 255 octets d'après la structure header_posix_ustar
 
 	int cpt_token;
 
@@ -234,13 +244,13 @@ Boucle sur les headers, dans le bon ordre, afin d'extraire/lister tous les élé
 int traitepostdecomp(gzHeadertype composition, FILE *logfile) {
 
 	struct timeval *tv;
-	
+
 	int i;
 	int mtime;
 	int utim;
 	int extreturn;
 	int returnvalue;
-	
+
 	returnvalue=0;
 
 	//On commence par les dossiers
@@ -251,7 +261,7 @@ int traitepostdecomp(gzHeadertype composition, FILE *logfile) {
 		if (logflag==1) fprintf(logfile, "[Dossier %s] Code retour d' extraction : %d\n", composition.headDir[i].name, extreturn);
 		if (extreturn==-1) returnvalue=1;
 	}
-	
+
 	//Puis les fichiers
 	for (i=0; i<composition.nbFile; i++) {
 		if (extract==1) extreturn=extraction(composition.headFile[i], NULL, &composition.datas[i], logfile);
@@ -274,7 +284,7 @@ int traitepostdecomp(gzHeadertype composition, FILE *logfile) {
 	if (extract==1) {
 		for (i=0; i<composition.nbDir; i++) {
 			mtime=strtol(composition.headDir[i].mtime, NULL, 8);
-			tv=malloc(2*sizeof(struct timeval));	
+			tv=malloc(2*sizeof(struct timeval));
 			tv[0].tv_sec=mtime;
 			tv[0].tv_usec=0;
 			tv[1].tv_sec=mtime;
@@ -288,4 +298,3 @@ int traitepostdecomp(gzHeadertype composition, FILE *logfile) {
 
 	return returnvalue;
 }
-

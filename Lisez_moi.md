@@ -5,7 +5,7 @@ Extracteur durable et parallèle d'archives ustar POSIX
 Projet de RS TELECOM Nancy 2016-2017
 
 Auteurs
-    
+
     GARCIA Guillaume
     ZAMBAUX Gauthier
 
@@ -23,9 +23,9 @@ Utilisation de ptar
 	Lister les éléments contenus dans une archive tar -FONCTIONNEL-
 
 	    ./ptar <chemin/vers/archive>
-	
+
 	Extraire les éléments d'une archive tar (et listing basique) -FONCTIONNEL-
-		
+
 	    ./ptar -x <chemin/vers/archive>
 
 	Listing détaillé des métadonnées des éléments d'une archive tar -FONCTIONNEL-
@@ -46,7 +46,7 @@ Utilisation de ptar
 
 
 	Exemples :
-		
+
 	    Les options peuvent être combinées.
 
 	    L'exemple testf.tar fourni dans le git ne contient que des fichiers (dont un vide).
@@ -72,14 +72,14 @@ Utilisation de ptar
 	    ./ptar -xzlp 4 archive_test/testall.tar.gz
 
 
-	    Exécuter le script rmtest.sh avant chaque test sur les archives pour nettoyer le dossier courant (enlève également logfile.txt).
+	    Exécuter le script rmtest.sh avant chaque test sur les archives pour nettoyer le dossier courant.
 	    ./rmtest.sh
-	   
+
 
 Page de manuel ptar(1)
-	
+
 	Lire la page de manuel de ptar sans manipulations/droits super-utilisateurs au préalable
-	
+
 	   man ./ptar.1.gz
 
 	Lire la page de manuel avec `man ptar`, nécessite d'avoir les droits super-utilisateurs
@@ -89,7 +89,7 @@ Page de manuel ptar(1)
 	   sudo install -g 0 -o 0 -m 0644 ptar.1.gz /usr/local/man/man1/
 	   man ptar
 
-	   (La commande `man ptar` devrait alors afficher la page man du bon programme 
+	   (La commande `man ptar` devrait alors afficher la page man du bon programme
 	   et pas celle du programme ptar potentiellement préexistant "tar-like program written in perl")
 
 	Lire la page de manuel avec groff-utf8
@@ -108,12 +108,14 @@ Page de manuel ptar(1)
 	   groff-utf8 -Tutf8 -mandoc ptar.1 | less
 
 
-Dernière Màj 
+Dernière Màj
 
-	23/11/2016    21:53     version 1.5.1.0 (étape 6 sans étape 5, améliorée)
+	25/11/2016    12:20     version 1.6.0.0 (étape 7 sans étape 5, optimisation pour test blanc)
 
 
-Debug 
+Debug
+
+  ptar vérifie la somme de contrôle (checksum) des fichiers de l'archive, si l'un des féléments est corrompu, ptar termine et renvoie une erreur.
 
 	Pour observer le code brute d'une fichier et son affichage
 		hexdump -C testfalsearch.tar
