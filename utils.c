@@ -26,6 +26,7 @@ Correspondantes aux options suivantes :
 #include <stdbool.h>
 #include <math.h>
 #include <sys/wait.h>
+#include <limits.h>
 
 #include "checkfile.h"
 #include "zlib/zlib.h"
@@ -590,6 +591,8 @@ const char *decompress(char *folder, FILE *logfile, bool isonlygz, const char *f
 	char *erroreof;
 	char *errorrewind;
 	char *data;
+	//char absolutepath[PATH_MAX + 1];
+	//char *res;
 	gzFile file;
 
 	gzFile (*gzopen)();
@@ -605,7 +608,18 @@ const char *decompress(char *folder, FILE *logfile, bool isonlygz, const char *f
 	pid_t pid;        		//pid pour le fork, permet à la fonction de terminer pour ouvrir le tube de l'autre côté.
 	pid_t fpid;       		//pid du processus fils, on va lui envoyer un signal pour lui dire que ce processus (le père) a terminé.
 
+
 	if (logflag==1) fprintf(logfile, "Debut de la decompression de l'archive %s\n", folder);
+
+	/*
+	//Recherche du chemin absolu
+	res=realpath("zlib/libz.so", absolutepath);
+
+	if (res==NULL) {
+		printf("Erreur dans la recherche du chemin absolu de zlib.h\n");
+		if (logflag==1) fclose(logfile);
+		exit(EXIT_FAILURE);
+	} */
 
 	//Chargement de la bibliothèque zlib avec dlopen.
 	handle=dlopen("./zlib/libz.so", RTLD_NOW);
@@ -613,6 +627,10 @@ const char *decompress(char *folder, FILE *logfile, bool isonlygz, const char *f
 	//Solution bricolée pour le test blanc: On suppose que si ça ne marche pas, c'est qu'on essaie de charger depuis un sous dossier.
 	if (!handle) {
 		handle=dlopen("../zlib/libz.so", RTLD_NOW);
+	}
+
+	if (!handle) {
+		handle=dlopen("/usr/lib/libz.so", RTLD_NOW);
 	}
 
 	//Gestion du cas ou la bibliothèque ne charge pas.
