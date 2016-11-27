@@ -31,7 +31,7 @@ Correspondantes aux options suivantes :
 #include "checkfile.h"
 #include "zlib/zlib.h"
 #include "utils.h"
-#include "sorting.h"
+//#include "sorting.h"
 
 
 /*
@@ -213,6 +213,13 @@ int traitement(char *folder) {
 			break;
 		}
 
+		/* TESTS */
+
+		//getparentpath(head.name);
+
+
+
+
 		/*
 		Récupération des data (dans le cas d'un fichier non vide).
 		*/
@@ -323,7 +330,7 @@ int traitement(char *folder) {
 			}
 
 			//Extraction de l'élément.
-			extreturn=extraction(head, NULL, data, logfile);
+			extreturn=extraction(&head, NULL, data, logfile, NULL);
 
 			if (logflag==1) fprintf(logfile, "Retour d'extraction de %s : %d\n", head.name, extreturn);
 		}
@@ -434,25 +441,18 @@ int listing(headerTar head) {
 	//Print des permissions de l'élément
 	if (typeflag==5) printf("d");
 	else printf( (typeflag==2) ? "l" : "-");
-    	printf( (mode & S_IRUSR) ? "r" : "-");
-    	printf( (mode & S_IWUSR) ? "w" : "-");
-    	printf( (mode & S_IXUSR) ? "x" : "-");
-    	printf( (mode & S_IRGRP) ? "r" : "-");
-    	printf( (mode & S_IWGRP) ? "w" : "-");
-    	printf( (mode & S_IXGRP) ? "x" : "-");
-    	printf( (mode & S_IROTH) ? "r" : "-");
-    	printf( (mode & S_IWOTH) ? "w" : "-");
-  		printf( (mode & S_IXOTH) ? "x" : "-");
+	printf( (mode & S_IRUSR) ? "r" : "-");
+	printf( (mode & S_IWUSR) ? "w" : "-");
+	printf( (mode & S_IXUSR) ? "x" : "-");
+	printf( (mode & S_IRGRP) ? "r" : "-");
+	printf( (mode & S_IWGRP) ? "w" : "-");
+	printf( (mode & S_IXGRP) ? "x" : "-");
+	printf( (mode & S_IROTH) ? "r" : "-");
+	printf( (mode & S_IWOTH) ? "w" : "-");
+	printf( (mode & S_IXOTH) ? "x" : "-");
 
 	//Print des autres informations : uid, gid, taille, date de modification, nom, et nom du fichier linké (vide si ce n'est pas un lien symbo)
-
-	/*
-	Ceci produit deux espaces en fin de ligne si l'élément n'est pas un symlink, et fait donc échouer la détection aux test blancs. (reste correct cela dit)
-	printf(" %d/%d %d %s %s %s %s\n", uid, gid, size, bmtime, head.name, (typeflag==2) ? "->" : "", (typeflag==2) ? head.linkname : "");
-	*/
-
-	if (typeflag==2) printf(" %d/%d %d %s %s -> %s\n", uid, gid, size, bmtime, head.name, head.linkname);
-	else printf(" %d/%d %d %s %s\n", uid, gid, size, bmtime, head.name);
+	printf(" %d/%d %d %s %s%s%s\n", uid, gid, size, bmtime, head.name, (typeflag==2) ? " -> " : "", (typeflag==2) ? head.linkname : "");
 
 	return 0;
 }
@@ -463,9 +463,12 @@ int listing(headerTar head) {
 Traite l'extraction des éléments (regular files, directory, symbolic links)
 */
 
-int extraction(headerTar head, const char *name, char *data, FILE *logfile) {
+int extraction(headerTar *head, char *namex, char *data, FILE *logfile, char *typeflagex) {
 
 	struct timeval *tv;
+	char *typeflag;
+	char *name;
+	char *namep;
 
 	int mode;
 	int size;
@@ -481,58 +484,97 @@ int extraction(headerTar head, const char *name, char *data, FILE *logfile) {
 	int etatgid;
 	int sync;
 	int utim;
+	int extractf;				//Sert à arrêter la récursion de la fonction (et cause la remontée)
 
 	//Nécessaire d'initialiser ces flags car pas initialisés dans tous les cas (et causent un 'faux' return -1 dans certains cas).
 	file=0;
 	writ=0;
 	sync=0;
 	utim=0;
+	etatgid=0;
+	etatuid=0;
+	etat=0;
+	extractf=0;
 
-	//Récupération du mtime en secondes depuis l'Epoch. (voir tar(5))
-	mtime=strtol(head.mtime, NULL, 8);
+	//Récupération du typeflag
+	if (typeflagex!=NULL) {
+		typeflag=typeflagex;
+	}
+	else {
+		typeflag=head->typeflag;
+	}
 
-	//On set les champs de la structure timeval[2] pour utimes() et lutimes().
-	tv=malloc(2*sizeof(struct timeval));
-	tv[0].tv_sec=mtime;
-	tv[0].tv_usec=0;
-	tv[1].tv_sec=mtime;
-	tv[1].tv_usec=0;
+	//Récupération du name
+	if (namex!=NULL) {
+		name=namex;
+	}
+	else {
+		name=head->name;
+	}
 
-	//Récupération du uid et gid convertit depuis l'octal en décimal.
-	uid=strtol(head.uid, NULL, 8);
-	gid=strtol(head.gid, NULL, 8);
+	//Récupération des autres champs
+	if (head!=NULL) {
 
-	//On set l'uid et le gid du processus (cette instance d'extraction()) à ceux de l'élément à extraire. Voir setuid(3) et setgid(3).
-	etatuid=setuid(uid);
-	etatgid=setgid(gid);
+		//Récupération du mtime en secondes depuis l'Epoch. (voir tar(5))
+		mtime=strtol(head->mtime, NULL, 8);
 
-	//Récupération des permissions du fichier en octal, converties en décimal.
-	mode=strtol(head.mode, NULL, 8);
+		//On set les champs de la structure timeval[2] pour utimes() et lutimes().
+		tv=malloc(2*sizeof(struct timeval));
+		tv[0].tv_sec=mtime;
+		tv[0].tv_usec=0;
+		tv[1].tv_sec=mtime;
+		tv[1].tv_usec=0;
 
-	//Récupération de la taille (comme dans le main).
-	size=strtol(head.size, NULL, 8);
+		//Récupération du uid et gid convertit depuis l'octal en décimal.
+		uid=strtol(head->uid, NULL, 8);
+		gid=strtol(head->gid, NULL, 8);
+
+		//On set l'uid et le gid du processus (cette instance d'extraction()) à ceux de l'élément à extraire. Voir setuid(3) et setgid(3).
+		etatuid=setuid(uid);
+		etatgid=setgid(gid);
+		if (logflag==1) fprintf(logfile, "[Element %s] Code retour du setuid : %d et du setgid : %d\n", name, etatuid, etatgid);
+
+		//Récupération des permissions du fichier en octal, converties en décimal.
+		mode=strtol(head->mode, NULL, 8);
+
+		//Récupération de la taille (comme dans le main).
+		size=strtol(head->size, NULL, 8);
+
+	}
+	else {
+		mtime=0;
+		mode=S_IRWXU;
+		size=0;
+	}
 
 	//Séléction du type d'élément et actions.
-	switch (head.typeflag[0]) {
+	switch (typeflag[0]) {
 		//Fichiers réguliers
 		case '0' :
-			if (logflag==1) fprintf(logfile, "[Fichier %s] Code retour du setuid : %d et du setgid : %d\n", head.name, etatuid, etatgid);
-			if (name==NULL) {
-				file=open(head.name, O_CREAT | O_WRONLY | O_SYNC | O_DSYNC, mode); //O_CREAT pour créer le fichier et O_WRONLY pour pouvoir écrire dedans. O_SYNC et O_DSYNC pour fsync().
+			/*   CREER PATH PARENT 	*/
+			namep=getparentpath(name);
+			//On s'assure de l'existence de l'arborescence des dossiers parents avec l'appel récursif à extraction() avec le typeflag "5".
+			extractf=extraction(NULL, namep, NULL, logfile, "5");
+			if (extractf!=0) {
+					printf("Il y a eu un problème lors de la construction de l'arborescence des dossiers parents de %s\n", name);
+					return -1;
 			}
-			else {
-				file=open(name, O_CREAT | O_WRONLY | O_SYNC | O_DSYNC, mode); //Permet la personnalisation du nom de fichier
+			file=open(name, O_CREAT | O_RDWR, mode); //O_CREAT pour créer le fichier et O_WRONLY pour pouvoir écrire dedans. O_SYNC et O_DSYNC pour fsync().
+			if (logflag==1) fprintf(logfile, "[Fichier %s] Code retour du open : %d\n", name, file);
+			//Ajustement des permissions (dans le cas de l'extraction post décompression)
+			if (head!=NULL) {
+				etat=chmod(name, mode);
+				if (logflag==1) fprintf(logfile, "[Fichier %s] Code retour du chmod : %d\n", name, etat);
 			}
-			if (logflag==1) fprintf(logfile, "[Fichier %s] Code retour du open : %d\n", head.name, file);
-			//Voir la partie (2)du main: récupération de données. Il faut utiliser size et pas size_reelle cette fois-ci
+			//Voir la partie (2) du main: récupération de données. Il faut utiliser size et pas size_reelle cette fois-ci
 			if (size > 0) {  //Ecriture si seulement le fichier n'est pas vide !
-      				writ=write(file, data, size);
-				if (logflag==1) fprintf(logfile, "[Fichier %s] Code retour du write : %d\n", head.name, writ);
+      	writ=write(file, data, size);
+				if (logflag==1) fprintf(logfile, "[Fichier %s] Code retour du write : %d\n", name, writ);
 
 				//Durabilité de l'écriture sur disque si option -p
 				if (thrd==1) {
 					sync=fsync(file);
-					if (logflag==1) fprintf(logfile, "[Fichier %s] Code retour du fsync : %d\n", head.name, sync);
+					if (logflag==1) fprintf(logfile, "[Fichier %s] Code retour du fsync : %d\n", name, sync);
 				}
 
 				//Libération de la mémoire seulement si non décompression. La libération du *datas se fera en toute fin.
@@ -541,30 +583,70 @@ int extraction(headerTar head, const char *name, char *data, FILE *logfile) {
 				}
 			}
 			etat=close(file);
-			if (logflag==1) fprintf(logfile, "[Fichier %s] Code retour du close : %d\n", head.name, etat);
+			if (logflag==1) fprintf(logfile, "[Fichier %s] Code retour du close : %d\n", name, etat);
 			//On utilise utimes au lieu de utime pour factoriser la structure (donc le code) commune avec lutimes (symlinks).
-			utim=utimes(head.name, tv); //Une fois le fichier créé complétement (et fermé!), on configure son modtime (et actime).
-			free(tv);
-			if (logflag==1) fprintf(logfile, "[Fichier %s] Code retour du utime : %d\n", head.name, utim);
+			if (head!=NULL) {
+				utim=utimes(name, tv); //Une fois le fichier créé complétement (et fermé!), on configure son modtime (et actime).
+				free(tv);
+				if (logflag==1) fprintf(logfile, "[Fichier %s] Code retour du utime : %d\n", name, utim);
+			}
 			break;
 		//Liens symboliques
 		case '2' :
-			if (logflag==1) fprintf(logfile, "[Lien symbolique %s] Code retour du setuid : %d et du setgid : %d\n", head.name, etatuid, etatgid);
-			etat=symlink(head.linkname, head.name);
-			if (logflag==1) fprintf(logfile, "[Lien symbolique %s] Code retour du symlink : %d\n", head.name, etat);
-			utim=lutimes(head.name, tv); //On utilise lutimes car utime ne fonctionne pas sur les symlink : voir lutimes(3).
+			//On vérifie si l'arborescence de dossiers existe et on la crée le cas échéant.
+			if (decomp==0) {
+				etat=symlink(head->linkname, name);
+				if (logflag==1) fprintf(logfile, "[Lien symbolique %s] Code retour du symlink : %d\n", name, etat);
+				utim=lutimes(name, tv); //On utilise lutimes car utime ne fonctionne pas sur les symlink : voir lutimes(3).
+				free(tv);
+				if (logflag==1) fprintf(logfile, "[Lien symbolique %s] Code retour du utime : %d\n", name, utim);
+				break;	
+			}
+			//Puis on vérifie si le fichier pointé par le lien symbolique existe, on l'extrait le cas échéant.
+			if (existe(head->name)==false) {
+				extraction(NULL, head->linkname, NULL, logfile, typeflag);
+			}
+			//On créé ensuite le lien symbolique
+			etat=symlink(head->linkname, name);
+			if (logflag==1) fprintf(logfile, "[Lien symbolique %s] Code retour du symlink : %d\n", name, etat);
+			utim=lutimes(name, tv); //On utilise lutimes car utime ne fonctionne pas sur les symlink : voir lutimes(3).
 			free(tv);
-			if (logflag==1) fprintf(logfile, "[Lien symbolique %s] Code retour du utime : %d\n", head.name, utim);
+			if (logflag==1) fprintf(logfile, "[Lien symbolique %s] Code retour du utime : %d\n", name, utim);
 			break;
 		//Répertoires
 		case '5' :
-			if (logflag==1) fprintf(logfile, "[Dossier %s] Code retour du setuid : %d et du setgid : %d\n", head.name, etatuid, etatgid);
-			etat=mkdir(head.name, mode);
-			//Le utime est fait à la fin (en effet on continue de parcourir les dossiers et d'y créer d'autre élément on modifie donc le mtime juste après !)
-			if (logflag==1) fprintf(logfile, "[Dossier %s] Code retour du mkdir : %d\n", head.name, etat);
+			//On vérifie l'existence du dossier.
+			if (existe(name)==true) {
+				//Si le dossier existe et qu'on a son header, on met à jour ses permissions.
+				printf("ATTTEEEEENTTIOOOON\n");
+				if (head!=NULL) {
+					etat=chmod(name, mode);
+					if (logflag==1) fprintf(logfile, "[Fichier %s] Code retour du chmod : %d\n", name, etat);
+				}
+				//Si on ne l'a pas on signifie à la fonction récursive qu'on a fini de créer l'arborescence de dossier avec un return.
+				else return 0;
+			}
+			//Le dossier n'existe pas, on va chercher à le créer si son parent existe, récursivement.
+			else {
+				/*   CREER PATH_PARENT  */
+				namep=getparentpath(name);
+				printf(" NAMEP :%s\n", namep);
+				if (strcmp(namep, "")==0) {
+					etat=mkdir(name, mode);
+					if (logflag==1) fprintf(logfile, "[Dossier %s] Code retour du mkdir : %d\n", name, etat);
+					return 0;
+				}
+				extractf=extraction(NULL, namep, NULL, logfile, typeflag);
+				//Si le dossier parent a pu être créé alors on crée celui la:
+				if (extractf==0) {
+					etat=mkdir(name, mode);
+					if (logflag==1) fprintf(logfile, "[Dossier %s] Code retour du mkdir : %d\n", name, etat);
+					return 0;
+				}
+			}
 			break;
 		default:
-			printf("Elément inconnu par ptar : Typeflag = [%c]\n", head.typeflag[0]);
+			printf("Elément inconnu par ptar : Typeflag = [%c]\n", typeflag[0]);
 			return -1;
 	}
 
@@ -591,8 +673,6 @@ const char *decompress(char *folder, FILE *logfile, bool isonlygz, const char *f
 	char *erroreof;
 	char *errorrewind;
 	char *data;
-	//char absolutepath[PATH_MAX + 1];
-	//char *res;
 	gzFile file;
 
 	gzFile (*gzopen)();
@@ -610,16 +690,6 @@ const char *decompress(char *folder, FILE *logfile, bool isonlygz, const char *f
 
 
 	if (logflag==1) fprintf(logfile, "Debut de la decompression de l'archive %s\n", folder);
-
-	/*
-	//Recherche du chemin absolu
-	res=realpath("zlib/libz.so", absolutepath);
-
-	if (res==NULL) {
-		printf("Erreur dans la recherche du chemin absolu de zlib.h\n");
-		if (logflag==1) fclose(logfile);
-		exit(EXIT_FAILURE);
-	} */
 
 	//Chargement de la bibliothèque zlib avec dlopen.
 	handle=dlopen("./zlib/libz.so", RTLD_NOW);

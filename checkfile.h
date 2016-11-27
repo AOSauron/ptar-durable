@@ -45,4 +45,13 @@ Retourne true si il existe, false sinon.
 bool existe(char *folder);
 
 
+/*
+Cette fonction, à l'aide de strtok et strcat, retournel'arborescence parente de l'élément passé en paramètre.
+Il faut bien vérifier à l'avance qu'une arborescence parente existe bien.
+Cette fonction est utilisée dans les appels récursifs de extraction(), pour générer des chemin d'accès n'existant pas au préalable.
+*/
+
+char *getparentpath(char *folder);
+
+
 #endif

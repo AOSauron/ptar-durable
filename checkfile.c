@@ -13,6 +13,9 @@ lors du premier open() dans la boucle principale du main.
 #include <stdlib.h>
 #include <string.h>
 #include <stdbool.h>
+#include <unistd.h>
+#include <sys/stat.h>
+#include <sys/types.h>
 
 #include "utils.h"
 
@@ -42,21 +45,21 @@ bool checkfile(char *file, FILE *logfile) {
 	//On récupère l'argument (dans une variable temporaire car strtok agit dessus) et on test si c'est bien une archive .tar ou .tar.gz
 	strcpy(directory_test, file);   // strcpy(char dest, char src);
 
-  	//Récupère le premier token (voir strtok(3))
-  	token=strtok(directory_test, delim);
+	//Récupère le premier token (voir strtok(3))
+	token=strtok(directory_test, delim);
 
 	//Initialisation du filenamegz pour le cas du fichier non archivé mais compressé.
 	strcpy(filenamegz, "");
 
-   	//Récupère les autres token et ne conserve que les 2 derniers à chaque fois. On récupère le nom sans l'extension .gz également.
-   	do {
+ 	//Récupère les autres token et ne conserve que les 2 derniers à chaque fois. On récupère le nom sans l'extension .gz également.
+ 	do {
 		cpt_token++;
 		token_courant=token_suivant;
 		token_suivant=token;
-    token=strtok(NULL, delim);
+	  token=strtok(NULL, delim);
 		strcat(filenamegz, token_courant);
 		if (strcmp(token_courant,"")!=0 && strcmp(token_suivant,"gz")!=0) strcat(filenamegz, delim);
-   	} while (token != NULL);
+ 	} while (token != NULL);
 
 	//Détection de l'extension
 	//Cas du .tar.gz ou .gz
@@ -106,18 +109,59 @@ bool checkfile(char *file, FILE *logfile) {
 
 
 /*
-Cette fonction vérifie l'existence du fichier ou dossier passé en paramètre. Sert à l'extraction().
+Cette fonction vérifie l'existence du fichier ou dossier ou lien symbolique passé en paramètre. Sert à l'extraction().
 Retourne true si il existe, false sinon.
+Retourne true si le fichier pointé par le lien symbolique existe, false sinon.
 */
 
 bool existe(char *folder) {
 
-	//struct stat s;
+	struct stat s;
 
-	//if (stat(folder, &s) == 0) {
-  //	return false;
-	//}
-	//else {
-  //	return true;
-	//}
+	if (stat(folder, &s) <= 0) {
+  	return false;
+	}
+	else {
+  	return true;
+	}
+}
+
+
+/*
+Cette fonction, à l'aide de strtok et strcat, retourne l'arborescence parente de l'élément passé en paramètre.
+Il faut bien vérifier à l'avance qu'une arborescence parente existe bien.
+Cette fonction est utilisée dans les appels récursifs de extraction(), pour générer des chemin d'accès n'existant pas au préalable.
+*/
+
+char *getparentpath(char *folder) {
+
+	char *token;
+	char *token_courant;
+	char *token_suivant;
+	const char *delim;
+	char foldbuf[255];
+	char parentpath[255];
+
+	token="";
+	token_courant="";
+	token_suivant="";
+	delim="/";
+
+	strcpy(foldbuf, folder);
+	strcpy(parentpath, "");
+	//parentpath="";
+
+	token=strtok(foldbuf, delim);
+
+	do {
+		token_courant=token_suivant;
+		token_suivant=token;
+		token=strtok(NULL, delim);
+		strcat(parentpath, token_courant);
+		if (strcmp(token_courant,"")!=0) strcat(parentpath, delim);
+	} while (token != NULL);
+
+	printf("Parent path :%s\n", parentpath);
+
+	return parentpath;
 }

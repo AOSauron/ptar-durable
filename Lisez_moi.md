@@ -11,6 +11,7 @@ Auteurs
 
 Dépendances
 
+    zlib         (il faut que libz.so soit dans /usr/lib/)
     groff-utf8   (pour un des moyens de lecture de la page man ptar(1)
 
 Build & execute:
