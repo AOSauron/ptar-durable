@@ -100,12 +100,10 @@ Pratique l'extraction de l'élément correspondant au header passé en paramètr
 Ecrit les codes de retour des open/close/write/symlink/mkdir/setuid/setgid/utime/fsync dans un logfile si l'option -e est spécifiée.
 Affecte correctement tous les attributs des éléments, sauf le mtime des dossiers qui sont affectés en fin de traitement().
 Si on veut forcer un nom de fichier, le spécifier dans le champ name, sinon mettre NULL.
-On peut préciser un typeflag pour le name passé en paramètre (conseillé). Sinon mettre NULL.
-Ces 2 paramètre servent à la décompression dans le cas d'une archive désordonnée !
 Retourne 0 si tout s'est bien passé, -1 sinon.
 */
 
-int extraction(headerTar *head, char *namex, char *data, FILE *logfile, char *typeflagex);
+int extraction(headerTar *head, char *namex, char *data, FILE *logfile);
 
 
 
