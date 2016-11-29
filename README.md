@@ -21,27 +21,27 @@ Build & execute:
 
 Utilisation de ptar
 
-	Lister les éléments contenus dans une archive tar -FONCTIONNEL-
+	Lister les éléments contenus dans une archive tar
 
 	    ./ptar <chemin/vers/archive>
 
-	Extraire les éléments d'une archive tar (et listing basique) -FONCTIONNEL-
+	Extraire les éléments d'une archive tar (et listing basique)
 
 	    ./ptar -x <chemin/vers/archive>
 
-	Listing détaillé des métadonnées des éléments d'une archive tar -FONCTIONNEL-
+	Listing détaillé des métadonnées des éléments d'une archive tar
 
 	    ./ptar -l <chemin/vers/archive>
 
-	Parallélisation et durabilisation des écritures avec NBTHREADS threads -NON IMPLEMENTE-
+	Parallélisation et durabilisation des écritures avec NBTHREADS threads
 
 	    ./ptar -p <NBTHREADS> <chemin/vers/archive>
 
-	Décompression d'une archive .tar.gz (compressée avec gzip) -SEMI FONCTIONNEL-
+	Décompression d'une archive .tar.gz (compressée avec gzip), gère le cas de header désordonnés
 
 	   ./ptar -z <chemin/vers/archive>
 
-	Générer un logfile (pour extraction & décompression) de divers codes retours, pour développeurs -FONCTIONNEL-
+	Générer un logfile (pour extraction & décompression) de divers codes retours, pour développeurs
 
 	   ./ptar -e <chemin/vers/archive>
 
@@ -111,12 +111,13 @@ Page de manuel ptar(1)
 
 Dernière Màj
 
-	25/11/2016    12:20     version 1.6.0.0 (étape 7 sans étape 5, optimisation pour test blanc)
+	29/11/2016    18:49     version 1.6.2.0 (étape 7 sans étape 5, stratégie de décompression presque achevée)
 
 
 Debug
 
-  ptar vérifie la somme de contrôle (checksum) des fichiers de l'archive, si l'un des féléments est corrompu, ptar termine et renvoie une erreur.
+
+  ptar vérifie la somme de contrôle (checksum) des fichiers de l'archive, si l'un des éléments est corrompu, ptar termine et renvoie une erreur.
 
 	Pour observer le code brute d'une fichier et son affichage
 		hexdump -C testfalsearch.tar

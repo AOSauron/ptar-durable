@@ -38,20 +38,38 @@ bool checkfile(char *file, FILE *logfile);
 
 
 /*
-Cette fonction vérifie l'existence du fichier ou dossier passé en paramètre. Sert à l'extraction().
+Cette fonction vérifie l'existence du dossier passé en paramètre. Sert à l'extraction() et à checkpath.
 Retourne true si il existe, false sinon.
 */
 
-bool existe(char *folder);
+bool existeDir(char *folder);
 
 
 /*
-Cette fonction, à l'aide de strtok et strcat, retournel'arborescence parente de l'élément passé en paramètre.
-Il faut bien vérifier à l'avance qu'une arborescence parente existe bien.
-Cette fonction est utilisée dans les appels récursifs de extraction(), pour générer des chemin d'accès n'existant pas au préalable.
+Cette fonction vérifie l'existence du fichier passé en paramètre. Sert à l'extraction() et à checkpath.
+Retourne true si il existe, false sinon.
 */
 
-char *getparentpath(char *folder);
+bool existeFile(char *file);
+
+
+/*
+Fonction pour les liens symboliques : reconstitue le chemin d'accès complet à partir du linkname du header
+et du pathname du lien symobolique.
+Retourne le chemin d'accès complet du fichier pointé par le lien symbolique.
+*/
+
+char *recoverpath(char *linkname, char *pathlink, char pathname[]);
+
+
+/*
+Fonction vérifiant l'existence de l'arborescence de l'élément passé en paramètre.
+Vérifie chaque dossier parent en partant de la racine relative, et le crée si n'existe pas.
+Retourne 0 si la création/exploration a fonctionné et que le path existe.
+Retourne -1 sinon.
+*/
+
+int checkpath(char *path, FILE *logfile);
 
 
 #endif

@@ -16,7 +16,8 @@ Correspondantes aux options suivantes :
 #ifndef INCLUDE_UTILS_H
 #define INCLUDE_UTILS_H
 
-#define PATH_LENGTH 255     //Taille maximale pour un pathname fixée à 255 caractère (voir struct header_posix_ustar)
+#define MAXDIR 2048        //Nombre maximum de dossiers contenus dans une archive.
+#define PATHLENGTH 255     //Taille maximale pour un pathname fixée à 255 caractère (voir struct header_posix_ustar)
 
 #include <stdbool.h>
 
@@ -122,14 +123,14 @@ const char *decompress(char *folder, FILE *logfile, bool isonlygz, const char *f
 
 
 /*
-Sert à vérifier la non-corruption d'une archive tar après sont téléchargement.
+Sert à vérifier la non-corruption d'une archive tar après son téléchargement.
 Vérifie la somme de contrôle stockée dans le header passé en paramètre :
-Pour cela, recalcule le checksum du header et le compare au champs checksum sur header.
+Pour cela, recalcule le checksum du header et le compare au champs checksum du header.
 L'algorithme de calcul est le suivant : fait la somme de tous les bytes du header en remplaçant le champ header.checksum par
-une suite de 8 espace ASCII de valeur décimale 32.
-Avant la comparaison. on applique un masque 0x3FFFF au checksum calculé car seul les 18 bits de poids faible
+une suite de 8 espaces ASCII de valeur décimale 32.
+Avant la comparaison, on applique un masque 0x3FFFF au checksum calculé car seul les 18 bits de poids faible
 nous importent ici pourla comparaison. Pour cela on utilise un ET bit-à-bit. Ce n'est pas nécessaire mais
-c'est plus sûr pour la comparaison.
+c'est plus sûr pour la comparaison. (les autres bits pouvant changer la valeur)
 Retourne true si le checksum est bon, false sinon.
 */
 

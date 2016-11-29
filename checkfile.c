@@ -16,6 +16,9 @@ lors du premier open() dans la boucle principale du main.
 #include <unistd.h>
 #include <sys/stat.h>
 #include <sys/types.h>
+#include <fcntl.h>
+#include <dirent.h>
+#include <errno.h>
 
 #include "utils.h"
 
@@ -114,54 +117,161 @@ Retourne true si il existe, false sinon.
 Retourne true si le fichier pointé par le lien symbolique existe, false sinon.
 */
 
-bool existe(char *folder) {
+bool existeDir(char *folder) {
 
-	struct stat s;
+	DIR *dirstream;
 
-	if (stat(folder, &s) <= 0) {
-  	return false;
+	dirstream=opendir(folder);
+
+	if (dirstream==NULL) {
+		closedir(dirstream);
+		return false;
 	}
 	else {
-  	return true;
+		closedir(dirstream);
+		return true;
 	}
 }
 
 
 /*
-Cette fonction, à l'aide de strtok et strcat, retourne l'arborescence parente de l'élément passé en paramètre.
-Il faut bien vérifier à l'avance qu'une arborescence parente existe bien.
-Cette fonction est utilisée dans les appels récursifs de extraction(), pour générer des chemin d'accès n'existant pas au préalable.
+Cette fonction vérifie l'existence du fichier passé en paramètre. Sert à l'extraction() et à checkpath.
+Retourne true si il existe, false sinon.
 */
 
-char *getparentpath(char *folder) {
+bool existeFile(char *file) {
+
+	int fd;
+
+	//Les flags O_EXCL et O_CREAT assure que si le fichier existe, l'open échoue.
+	fd=open(file, O_EXCL | O_CREAT);
+
+	if (fd<0) {
+		close(fd);
+		return false;
+	}
+	else {
+		close(fd);
+		return true;
+	}
+}
+
+
+/*
+Fonction pour les liens symboliques : reconstitue le chemin d'accès complet à partir du linkname du header
+et du pathname du lien symobolique.
+Retourne le chemin d'accès complet du fichier pointé par le lien symbolique.
+Seulement si le lien est plus haut que le fichier pointé !!
+*/
+
+char *recoverpath(char *linkname, char *pathlink, char pathname[]) {
 
 	char *token;
-	char *token_courant;
 	char *token_suivant;
+	char *token_courant;
 	const char *delim;
-	char foldbuf[255];
-	char parentpath[255];
+	const char *delim2;
+	char linkbuf[255];
+	char pathbuf[255];
 
 	token="";
 	token_courant="";
 	token_suivant="";
 	delim="/";
+	delim2=".";
+	strcpy(linkbuf, linkname);
+	strcpy(pathbuf, pathlink);
 
-	strcpy(foldbuf, folder);
-	strcpy(parentpath, "");
-	//parentpath="";
-
-	token=strtok(foldbuf, delim);
+	//Récupération de la première partie du path
+	token=strtok(pathbuf, delim);
 
 	do {
 		token_courant=token_suivant;
 		token_suivant=token;
-		token=strtok(NULL, delim);
-		strcat(parentpath, token_courant);
-		if (strcmp(token_courant,"")!=0) strcat(parentpath, delim);
+	  token=strtok(NULL, delim);
+		strcat(pathname, token_courant);
+		if (strcmp(token_courant,"")!=0) strcat(pathname, delim);
+ 	} while (token != NULL);
+
+	printf("PATHNAME : PATH du link : %s\n",pathname);
+
+	//Récupération de la deuxième partie du path et concaténation finale.
+	token=strtok(linkbuf, delim2);
+	printf("PATHNAME : TOKEN : %s\n",token);
+	token_courant="";
+	token_suivant="";
+
+	do {
+		token_courant=token_suivant;
+		token_suivant=token;
+		token=strtok(NULL, delim2);
+		strcat(pathname, token_courant);
+		if (strcmp(token_courant,"")!=0) strcat(pathname, delim2);
 	} while (token != NULL);
+	strcat(pathname, token_suivant);
 
-	printf("Parent path :%s\n", parentpath);
+	printf("PATHNAME : TOTAL PATH : %s\n",pathname);
 
-	return parentpath;
+	return pathname;
+}
+
+
+/*
+Fonction vérifiant l'existence de l'arborescence de l'élément passé en paramètre.
+Vérifie chaque dossier parent en partant de la racine relative, et le crée si n'existe pas.
+Ecrit les errno de chaque mkdir dans le logfile.
+Retourne 0 si la création/exploration a fonctionné et que le path existe.
+Retourne -1 sinon.
+*/
+
+int checkpath(char *path, FILE *logfile) {
+
+	char *token;
+	char *currentfolder;
+	char *followingfolder;
+	const char *delim;
+	char pathtotest[255];
+	char pathbuf[255];
+	int etat;
+	int etatfinal;
+
+	errno=0;
+	etat=0;
+	etatfinal=0;
+	delim="/";
+	token="";
+	currentfolder="";
+	followingfolder="";
+
+	//On recopie le path dans une variable intermédiaire pour ne pas l'altérer : strtok agit dessus.
+	strcpy(pathbuf, path);
+
+	//Premier appel à strtok
+	token=strtok(pathbuf, delim);
+	currentfolder=token;
+	strcpy(pathtotest, currentfolder);
+	strcat(pathtotest, delim);
+	//printf("\n");
+
+	do {
+		//printf("CURRENT FOLDER : %s\n", pathtotest);
+		token=strtok(NULL, delim);
+		followingfolder=token;
+		//printf("FOLLOWING FOLDER : %s\n", token);
+		//Si le token suivant est NULL, c'est qu'on a atteind l'élément concerné (donc on return avant de tenter un mkdir dessus)
+		if (token==NULL) {
+			//printf("\n");
+			break;
+		}
+		if (existeDir(pathtotest)==false) {
+			//On crée le dossier avec, pour l'instant, tous les droits (on ne sait jamais).
+			etat=mkdir(pathtotest, S_IRWXU | S_IRWXG | S_IRWXO);
+			if (logflag==1) fprintf(logfile, "[Dossier %s] Code retour du errno du mkdir de checkpath: %s\n", pathtotest, strerror(errno));
+			if (etat<0) etatfinal=-1;
+		}
+		strcat(pathtotest, followingfolder);
+		strcat(pathtotest, delim);
+	} while (token!=NULL);
+
+	return etatfinal;
 }
