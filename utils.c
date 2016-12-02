@@ -525,6 +525,7 @@ int extraction(headerTar *head, char *namex, char *data, FILE *logfile) {
 					recoverpath(head->linkname, head->name, filename);
 			}
 			else {
+				/*   CAS OU ON A /home/etc../.../fichier   */
 				strcpy(filename,head->linkname);
 			}
 			//printf("LE FILENAME DE LA MORT FDP WSH : %s\n", filename);
@@ -560,7 +561,8 @@ int extraction(headerTar *head, char *namex, char *data, FILE *logfile) {
 			//Le dossier n'existe pas :
 			else {
 				//On crée son arborescence de dossiers parente.
-				checkpath(name, logfile);
+				chkpath=checkpath(name, logfile);
+				if (logflag==1) fprintf(logfile, "[Dossier %s] Code retour du checkpath du fichier pointé : %d\n", name, chkpath);
 				//Puis on crée le dossier concerné.
 				etat=mkdir(name, mode);
 				if (logflag==1) fprintf(logfile, "[Dossier %s] Code retour du mkdir : %d\n", name, etat);

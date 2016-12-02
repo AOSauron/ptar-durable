@@ -111,7 +111,7 @@ Page de manuel ptar(1)
 
 Dernière Màj
 
-	29/11/2016    18:49     version 1.6.2.0 (étape 7 sans étape 5, stratégie de décompression presque achevée)
+	02/11/2016    11:39     version 1.6.3.0 (étape 7 sans étape 5, stratégie de décompression achevée)
 
 
 Debug

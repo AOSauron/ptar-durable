@@ -26,8 +26,8 @@ bool checkfile(char *file, FILE *logfile) {
 
 	bool isonlygz;
 	int cpt_token;
-  const char *delim;
-  char *token;
+	const char *delim;
+	char *token;
 	char *token_courant;
 	char *token_suivant;
 	char filenamegz[255];
@@ -144,15 +144,15 @@ bool existeFile(char *file) {
 	int fd;
 
 	//Les flags O_EXCL et O_CREAT assure que si le fichier existe, l'open échoue.
-	fd=open(file, O_EXCL | O_CREAT);
+	fd=open(file, O_EXCL | O_CREAT, S_IRWXU | S_IRWXG | S_IRWXO);
 
 	if (fd<0) {
 		close(fd);
-		return false;
+		return true;
 	}
 	else {
 		close(fd);
-		return true;
+		return false;
 	}
 }
 
@@ -193,11 +193,16 @@ char *recoverpath(char *linkname, char *pathlink, char pathname[]) {
 		if (strcmp(token_courant,"")!=0) strcat(pathname, delim);
  	} while (token != NULL);
 
-	printf("PATHNAME : PATH du link : %s\n",pathname);
+	//printf("PATHNAME : PATH du link : %s\n",pathname);
 
 	//Récupération de la deuxième partie du path et concaténation finale.
 	token=strtok(linkbuf, delim2);
-	printf("PATHNAME : TOKEN : %s\n",token);
+
+	//On élimine le premier caractère si c'est un /
+	if (token[0]=='/') {
+		token++;
+	}
+	//printf("PATHNAME : TOKEN : %s\n",token);
 	token_courant="";
 	token_suivant="";
 
@@ -210,7 +215,7 @@ char *recoverpath(char *linkname, char *pathlink, char pathname[]) {
 	} while (token != NULL);
 	strcat(pathname, token_suivant);
 
-	printf("PATHNAME : TOTAL PATH : %s\n",pathname);
+	//printf("PATHNAME : TOTAL PATH : %s\n",pathname);
 
 	return pathname;
 }
