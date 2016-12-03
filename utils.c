@@ -620,8 +620,13 @@ const char *decompress(char *folder, FILE *logfile, bool isonlygz, const char *f
 
 	if (logflag==1) fprintf(logfile, "Debut de la decompression de l'archive %s\n", folder);
 
-	//Chargement de la bibliothèque zlib avec dlopen.
-	handle=dlopen("./zlib/libz.so", RTLD_NOW);
+	//Chargement de la bibliothèque zlib avec dlopen. dlopen va chercher libz.so dans le système.
+	handle=dlopen("libz.so", RTLD_NOW);
+	
+	//Deuxième tentative en chargant la lib fourni par le git.
+	if (!handle) {
+		handle=dlopen("zlib/libz.so", RTLD_NOW);
+	}
 
 	//Solution bricolée pour le test blanc: On suppose que si ça ne marche pas, c'est qu'on essaie de charger depuis un sous dossier.
 	if (!handle) {
