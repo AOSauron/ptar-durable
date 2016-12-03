@@ -730,6 +730,7 @@ const char *decompress(char *folder, FILE *logfile, bool isonlygz, const char *f
 			while (!gzeof(file)) {
 				stat=(*gzread)(file, data, 1);
 				etat=write(status, data, 1);
+				//Un fsync tous les 512 octets est très gourmand en temps, son utilisation ici est discutable !
 				if (thrd==1) {
 					sync=fsync(status);
 					if (logflag==1) fprintf(logfile, "[Archive %s] Code retour du fsync : %d\n", folder, sync);
@@ -765,11 +766,13 @@ const char *decompress(char *folder, FILE *logfile, bool isonlygz, const char *f
 		while (!gzeof(file)) {
 			stat=(*gzread)(file, data, sizeof(data));
 			status=write(entreetube, data, sizeof(data));
+			//On force les buffer à se vider (donc on attend),c'est relativement gourmand en temps de le placer après chaque écriture de 512 octets.
 			if (thrd==1) {
 				sync=fsync(entreetube);
 				if (logflag==1) fprintf(logfile, "[Archive %s] Code retour du fsync : %d\n", folder, sync);
 			}
 		}
+		/* 		ON POURRAIT DEPLACER LE FSYNC() ICI POUR UNE MEILLEURE RAPIDITE    */
 		free(data);
 		if (logflag==1) fprintf(logfile, "[Archive %s] Code retour du dernier gzread : %d\n", folder, stat);
 		if (logflag==1) fprintf(logfile, "[Archive %s] Code retour du dernier write : %d\n", folder, status);
