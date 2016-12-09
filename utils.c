@@ -23,42 +23,39 @@ Correspondantes aux options suivantes :
 #include <sys/time.h>
 #include <utime.h>
 #include <dlfcn.h>
-#include <stdbool.h>
+#include <wait.h>
 #include <math.h>
-#include <sys/wait.h>
 #include <limits.h>
+#include <pthread.h>
 
 #include "checkfile.h"
 #include "zlib/zlib.h"
 #include "utils.h"
 
 /*
+Fonction d'appel des threads.
 Fonction principale : recueille les header de chaque fichier dans l'archive (compressée ou non) ainsi que les données suivantes chaque header si il y en a.
 Appelle ensuite les diverses fonctions utiles au traitement souhaité.
 */
 
-int traitement(char *folder) {
+void *traitement(char *folder) {
 
 	/*
 	Déclarations et initialisation des variables
 	*/
 
 	headerTar head;										//Structure des header tar POSIX ustar.
-	FILE *logfile; 										//Logfile de l'extraction/decompression/analyse (codes de retour des open, symlink, mkdir, etc).
 	struct utimbuf tm; 	   						//Structure pour le utime final des dossiers.
 
 	char *data; 		   								//Buffer pour les données suivant le header.
 	char dirlist[MAXDIR][PATHLENGTH];	//Liste des dossiers. La taille du chemin d'accès est limitée à 255 octets, contenance max : 2048 dossiers.
-	const char *pipename;							//Nom du tube nommé utilisé lors de la décompression, retourné par decompress().
 
 	bool isEOF; 											//Flag d'End Of File : true <=> Fin de fichier atteint.
 	bool isCorrupted;									//Flag de checksum : true <=> header corrompu.
 
 	int *mtimes;								   		//Liste des mtime, associé au premier tableau (dans l'ordre). Taille variable (par des realloc).
 	int *mtimestemp;									//Buffer temporaire pour realloc(mtimes).
-	int file;													//Descripteur de fichier retourné par l'open de l'archive.
 	int status;												//Valeur de retour des read() successifs dans la boucle principale : 0 <=> EOF, -1 <=> erreur.
-	int waitstatus;										//Status pour le waitpid.
 	int extreturn;	     							//Valeur de retour de extraction().
 	int nbdir; 		     								//Nombre de dossiers (sert au utime final).
 	int utim;													//Valeur de retour des utime() finaux pour les dossiers.
@@ -79,14 +76,6 @@ int traitement(char *folder) {
 
 
 	/*
-	Génération du logfile si besoin -e. Option pour développeurs. (utile pour extraction et décompression)
-	*/
-
-	if (logflag==1) {
-		logfile = genlogfile("logfile.txt", "a", folder);
-	}
-
-	/*
 	Tester l'argument (existence et nom bien formé).
 	*/
 
@@ -94,32 +83,7 @@ int traitement(char *folder) {
 		//Les messages d'erreurs sont gérés dans checkfile.c.
 		//Si l'archive est seulement compressée, tente une décompression directe: ptar n'est pas prévu pour cela, ce module est donc en bêta (développement inutil)
 		if(logflag==1) fclose(logfile);
-		return 1;
-	}
-
-	/*
-	Gestion du cas d'une archive compressée .tar.gz
-	*/
-
-	//On ouvre l'archive tar avec open() et le flag O_RDONLY (read-only). Si option -z, on décompresse, récupère les données dans un tube et on ouvre ce tube nommé.
-	if (decomp==1) {
-
-		//Décompression et ouverture dans un tube nommé tubedecompression.fifo
-		pipename=decompress(folder, logfile, false, NULL);
-
-		//Ouverture de la sortie du tube nommé.
-		file=open(pipename, O_RDONLY);
-
-		//On attend le processus fils qui écrit dans le tube nommé.
-		waitpid(-1, &waitstatus, 0);
-	}
-
-	/*
-	Gestion d'une archive non compressée .tar
-	*/
-
-	else {
-		file=open(folder, O_RDONLY);
+		exit(EXIT_FAILURE);
 	}
 
 	//Cas d'erreur -1 du open() ou du decompress : problème dans le fichier.
@@ -127,7 +91,7 @@ int traitement(char *folder) {
 		printf("Erreur d'ouverture du fichier, open() retourne : %d. Le fichier n'existe pas ou alors est corrompu.\n", file);
 		close(file);
 		if (logflag==1) fclose(logfile); //Aussi le logfile.
-		return 1;
+		exit(EXIT_FAILURE);
 	}
 
 	/*
@@ -140,6 +104,9 @@ int traitement(char *folder) {
 		Récupération du header, détection de fin de fichier et vérification du format archive POSIX ustar du fichier.
 		*/
 
+		//On lock le mutex pour protéger la ressource avant lecture.
+		pthread_mutex_lock(&MutexRead);
+
 		//On lit (read) un premier bloc (header) de 512 octets qu'on met dans une variable du type de la structure header_posix_ustar définie dans header.h (norme POSIX.1)
 		status=read(file, &head, sizeof(head));  // Utiliser sizeof(head) est plus évolutif qu'une constante égale à 512.
 
@@ -148,8 +115,11 @@ int traitement(char *folder) {
 			printf("Erreur dans la lecture du header, read() retourne : %d \n", status);
 			if (logflag==1) fclose(logfile);
 			close(file);
-			return 1;
+			exit(EXIT_FAILURE);
 		}
+
+		//On délock le mutex de lecture.
+		pthread_mutex_unlock(&MutexRead);
 
 		/* La fin d'une archive tar se termine par 2 enregistrements d'octets valant 0x0. (voir tar(5))
 		Donc la string head.name du premier des 2 enregistrement est forcément vide.
@@ -167,7 +137,7 @@ int traitement(char *folder) {
 			printf("Le fichier %s ne semble pas être une archive POSIX ustar.\n", folder);
 			if (logflag==1) fclose(logfile);
 			close(file);
-			return 1;
+			exit(EXIT_FAILURE);
 		}
 
 		/*
@@ -180,13 +150,6 @@ int traitement(char *folder) {
 			printf("La somme de contrôle (checksum) de %s est invalide.\n", head.name);
 			break;
 		}
-
-
-
-		//if (strtol(head.typeflag,NULL,10)==2){
-			//recoverpath(head.linkname,head.name);
-		//}
-
 
 		/*
 		Récupération des data (dans le cas d'un fichier non vide).
@@ -206,6 +169,9 @@ int traitement(char *folder) {
 			else {
 				size_reelle=512*((int)(size/512)+1);  // En castant avec (int) cela agit comme une partie entière. Ce n'est pas nécessaire mais plus sûr.
 			}
+
+			//On bloque le mutex en lecture.
+			pthread_mutex_lock(&MutexRead);
 
 			//On n'alloue de la mémoire que si on a besoin des données (c'est-à-dire si on souhaite extraire)
 			if (extract==1 || decomp==1) {
@@ -231,8 +197,11 @@ int traitement(char *folder) {
 				printf("Erreur dans la lecture du header, read() retourne : %d\n", status);
 				if (logflag==1) fclose(logfile);
 				close(file);
-				return 1;
+				exit(EXIT_FAILURE);
 			}
+
+			//On débloque le mutex en lecture.
+			pthread_mutex_unlock(&MutexRead);
 		}
 
 		/*
@@ -253,6 +222,9 @@ int traitement(char *folder) {
 		*/
 
 		if (extract==1) {
+
+			//On bloque le mutex en écriture.
+			pthread_mutex_lock(&MutexWrite);
 
 			//Récupération du type d'élément.
 			typeflag=strtol(head.typeflag, NULL, 10);
@@ -283,10 +255,9 @@ int traitement(char *folder) {
 			extreturn=extraction(&head, NULL, data, logfile);
 
 			if (logflag==1) fprintf(logfile, "Retour d'extraction de %s : %d\n", head.name, extreturn);
-		}
 
-		if (thrd==1) {
-			nthreads=0; // JUSTE POUR FAIRE TAIRE CE WARNING UNUSED PARAMETER
+			//On débloque le mutex en écriture.
+			pthread_mutex_unlock(&MutexWrite);
 		}
 
 	} while (isEOF==false);  //On aurait pu mettre while(1) puisque la boucle doit normalement se faire breaker plus haut.
@@ -300,7 +271,7 @@ int traitement(char *folder) {
 
 	//Suppression du tube nommé si il a été créé.
 	if (decomp==1) {
-		status=remove(pipename);
+		status=remove(pipenamed);
 		if (logflag==1) fprintf(logfile, "[Fichier %s] Code retour du remove : %d\n", folder, status);
 	}
 
@@ -327,10 +298,10 @@ int traitement(char *folder) {
 	}
 
 	//Si l'archive est corrompu, ptar doit renvoyer 1
-	if (isCorrupted==true) return 1;
+	if (isCorrupted==true) exit(EXIT_FAILURE);
 
 	//Sinon normalement tout s'est bien passé, et ptar renvoie 0.
-	else return 0;
+	else exit(EXIT_SUCCESS);
 }
 
 
@@ -622,7 +593,7 @@ const char *decompress(char *folder, FILE *logfile, bool isonlygz, const char *f
 
 	//Chargement de la bibliothèque zlib avec dlopen. dlopen va chercher libz.so dans le système.
 	handle=dlopen("libz.so", RTLD_NOW);
-	
+
 	//Deuxième tentative en chargant la lib fourni par le git.
 	if (!handle) {
 		handle=dlopen("zlib/libz.so", RTLD_NOW);

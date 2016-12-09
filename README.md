@@ -1,4 +1,4 @@
-#PTAR 
+#PTAR
 
 Extracteur durable et parallèle d'archives ustar POSIX
 
@@ -66,12 +66,9 @@ Utilisation de ptar
 	    ./ptar -z archive_test/testall.tar
 	    ./ptar -xz archive_test/testall.tar.gz
 	    ./ptar -zxl archive_test/testall.tar.gz
-	    ./ptar -xzel archive_test/testall.tar.gz
-
-	    à venir :
 	    ./ptar -xlp 3 archive_test/testall.tar
 	    ./ptar -xzlp 4 archive_test/testall.tar.gz
-
+      ./ptar -lxzep 6 archive_test/testall.tar.gz
 
 	    Exécuter le script rmtest.sh avant chaque test sur les archives pour nettoyer le dossier courant.
 	    ./rmtest.sh
@@ -111,7 +108,7 @@ Page de manuel ptar(1)
 
 Dernière Màj
 
-	02/11/2016    11:39     version 1.6.3.0 (étape 7 sans étape 5, stratégie de décompression achevée)
+	09/12/2016    13:03     version 1.7.0.0 : Version stable de ptar toutes étapes achevées (multithreadé)
 
 
 Debug

@@ -1,9 +1,12 @@
 //////////////////////////////////////////////////////////   ptar - Extracteur d'archives durable et parallèle  ///////////////////////////////////////////////////////////////////
-///////////////////////////////////////////////////////////////////////   v 1.6.0.0        24/11/2016   ///////////////////////////////////////////////////////////////////////////////////
+///////////////////////////////////////////////////////////////////////   v 1.7.0.0        09/12/2016   ///////////////////////////////////////////////////////////////////////////////////
 
 #include <stdio.h>
 #include <stdlib.h>
 #include <unistd.h>
+#include <fcntl.h>
+#include <sys/wait.h>
+#include <pthread.h>
 
 #include "utils.h"
 
@@ -13,8 +16,11 @@ int main(int argc, char *argv[]) {
 	Déclarations et initialisation des variables
 	*/
 
-	int opt;			//Valeur de retour de getopt().
-	int status;		//Valeur de retour de traitement().
+	int j;							//Indice de la boucle for pour la création des threads;
+	int opt;						//Valeur de retour de getopt().
+	int waitstatus;			//Status pour le waitpid.
+	pthread_t *tabthrd;	//Tableau des idf des threads;
+	void *ret;					//Structure pour le join final des threads.
 
 	//Initialisation des flags des options de ligne de commande. Ce sont des variables globales dans utils.h
 	thrd=0;
@@ -70,14 +76,62 @@ int main(int argc, char *argv[]) {
 	}
 
 	/*
-	Traitement effectif de l'archive
+	Génération du logfile si besoin -e. Option pour développeurs. (utile pour extraction et décompression)
 	*/
 
-	status = traitement(argv[optind]);
-
-	if (status==1) {
-		printf("ptar a renvoyé 1. Il y a eu au moins 1 erreur (probablement lors de l'extraction). Le nom du tube nommé utilisé pour la décompression (si elle a été spécifiée) est %s\n", pipenamed);
+	if (logflag==1) {
+		logfile = genlogfile("logfile.txt", "a", argv[optind]);
 	}
 
-	return status;
+	/*
+	Ouverture du fichier et mise en variable globale du descripteur de fichier.
+	*/
+
+	//On ouvre l'archive tar avec open() et le flag O_RDONLY (read-only). Si option -z, on décompresse, récupère les données dans un tube et on ouvre ce tube nommé.
+	if (decomp==1) {
+
+		//Décompression et ouverture dans un tube nommé tubedecompression.fifo
+		decompress(argv[optind], logfile, false, NULL);
+
+		//Ouverture de la sortie du tube nommé.
+		file=open(pipenamed, O_RDONLY);
+
+		//On attend le processus fils qui écrit dans le tube nommé.
+		waitpid(-1, &waitstatus, 0);
+	}
+	//Cas où pas compressée.
+	else {
+		file=open(argv[optind], O_RDONLY);
+	}
+
+	/*
+	Création des threads
+	*/
+
+	//Si on ne souhaite pas utiliser plusieurs threads, on n'en initialise qu'un (le thread principal).
+	if (thrd==0) {
+		nthreads=1;
+	}
+	//Sinon on initialise le thread principal + nthreads threads.
+	else {
+		nthreads++;
+	}
+
+	//Tableau des pthread_t
+	tabthrd=malloc(nthreads*sizeof(pthread_t));
+
+	//Lancement de chaque threads.
+	for (j=0; j<nthreads; j++) {
+		pthread_create(&tabthrd[j], NULL, traitement(argv[optind]), &j);
+	}
+
+	//Join des threads
+	for (j=0; j<nthreads; j++) {
+		(void)pthread_join(tabthrd[j], &ret);
+	}
+
+	//Libération du pointeur sur les threads.
+	free(tabthrd);
+
+	return 0;
 }

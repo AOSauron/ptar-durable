@@ -8,7 +8,7 @@ Correspondantes aux options suivantes :
 -x : Extraction.
 -l : Listing détaillé.
 -z : Décompression gzip avec la bibliothèque zlib.
--p NBTHREADS : (forcément couplée avec -x au moins) Durabilité et parallélisation de l'opération avec un nombre de threads choisi.
+-p NBTHREADS : Durabilité et parallélisation de l'opération avec un nombre de threads choisi.
 -e : Ecriture dans un logfile.txt. Utile pour -z et -x.
 
 */
@@ -32,6 +32,12 @@ int decomp;	                                                //Flags pour décomp
 int logflag; 	                                              //Flags pour logfile (option -e)
 int thrd;		                                                //Flags pour parallélisation (option -p)
 int nthreads;	                                              //Nombre de threads (option -p)
+int file;                                                   //Descripteur de fichier de l'open primordial.
+
+FILE *logfile; 			                                        //Logfile pour l'option -e.
+
+static pthread_mutex_t MutexRead;                           //Mutex pour le read dans traitement().
+static pthread_mutex_t MutexWrite;                          //Mutex pour les actions sur disque (write, mkdir..) dans extraction().
 
 
 /*
@@ -64,13 +70,14 @@ typedef struct header_posix_ustar headerTar;
 
 
 /*
+Fonction appelée par les threads !
 Fonction principale : recueille les header de chaque fichier dans l'archive (compressée ou non) ainsi que les données suivantes chaque header si il y en a.
 Appelle ensuite les diverses fonctions utiles au traitement souhaité.
 Prend en argument l'emplacement de l'archive, et les 5 flags d'options (ainsi que le nombre de threads)
-Retourne 0 si tout s'est bien passé, 1 sinon.
+Retourne 0 (EXIT_SUCCES) si tout s'est bien passé, 1 (EXIT_FAILURE) sinon.
 */
 
-int traitement(char *folder);
+void *traitement(char *folder);
 
 
 

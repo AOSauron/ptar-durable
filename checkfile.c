@@ -170,7 +170,6 @@ char *recoverpath(char *linkname, char *pathlink, char pathname[]) {
 	char *token_suivant;
 	char *token_courant;
 	const char *delim;
-	const char *delim2;
 	char linkbuf[255];
 	char pathbuf[255];
 
@@ -178,7 +177,6 @@ char *recoverpath(char *linkname, char *pathlink, char pathname[]) {
 	token_courant="";
 	token_suivant="";
 	delim="/";
-	delim2=".";
 	strcpy(linkbuf, linkname);
 	strcpy(pathbuf, pathlink);
 
@@ -196,24 +194,15 @@ char *recoverpath(char *linkname, char *pathlink, char pathname[]) {
 	//printf("PATHNAME : PATH du link : %s\n",pathname);
 
 	//Récupération de la deuxième partie du path et concaténation finale.
-	token=strtok(linkbuf, delim2);
+	token=linkbuf;
 
-	//On élimine le premier caractère si c'est un /
-	if (token[0]=='/') {
+	//On élimine les 2 premiers caractère si c'est  "./"
+	if (token[0]=='.' && token[1]=='/') {
+		token++;
 		token++;
 	}
-	//printf("PATHNAME : TOKEN : %s\n",token);
-	token_courant="";
-	token_suivant="";
 
-	do {
-		token_courant=token_suivant;
-		token_suivant=token;
-		token=strtok(NULL, delim2);
-		strcat(pathname, token_courant);
-		if (strcmp(token_courant,"")!=0) strcat(pathname, delim2);
-	} while (token != NULL);
-	strcat(pathname, token_suivant);
+	strcat(pathname,token);
 
 	//printf("PATHNAME : TOTAL PATH : %s\n",pathname);
 
