@@ -20,6 +20,7 @@ Correspondantes aux options suivantes :
 #define PATHLENGTH 255     //Taille maximale pour un pathname fixée à 255 caractère (voir struct header_posix_ustar)
 
 #include <stdbool.h>
+#include <zlib.h>
 
 
 /* Déclaration des variables globales : flags de ligne de commandes initialisés dans main et nom du tube nommé */
@@ -32,7 +33,15 @@ int decomp;	                                                //Flags pour décomp
 int logflag; 	                                              //Flags pour logfile (option -e)
 int thrd;		                                                //Flags pour parallélisation (option -p)
 int nthreads;	                                              //Nombre de threads (option -p)
+
 int file;                                                   //Descripteur de fichier de l'open primordial.
+gzFile filez;                                               //Structure de fichier pour le gzOpen primordial si décompression.
+/*
+gzFile (*gzopen)();                                         //Fonction gzOpen chargée par dlopen.
+int (*gzread)();                                            //Fonction gzRead chargée par dlopen.
+int (*gzclose)();                                           //Fonction gzClose chargée par dlopen.
+*/
+void *handle;                                               //Le handle du dlopen.
 
 FILE *logfile; 			                                        //Logfile pour l'option -e.
 
@@ -116,6 +125,7 @@ int extraction(headerTar *head, char *namex, char *data, FILE *logfile);
 
 
 /*
+OBSOLETE DEPUIS LA VERSION 1.7.1
 Décompresse l'archive [.tar].gz (il faut que l'extension .gz soit présente) passée en paramètre avant tout traitement ultérieur.
 Ecrit les données décompressées dans un tube nommé créé dans la fonction. Se fork une fois :
 Le processus père retourne le nom du tube nommé juste après le fork().
@@ -143,6 +153,13 @@ Retourne true si le checksum est bon, false sinon.
 
 bool checksum(headerTar *head);
 
+
+
+/*
+Charge la librairie dynamique zlib et les fonctions utilisées pour la décompression/extraction.
+*/
+
+void loadzlib();
 
 
 #endif

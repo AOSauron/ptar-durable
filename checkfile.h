@@ -47,7 +47,7 @@ bool existeDir(char *folder);
 
 /*
 Cette fonction vérifie l'existence du fichier passé en paramètre. Sert à l'extraction() et à checkpath.
-Retourne true si il existe, false sinon.
+Retourne true si il existe, false sinon.  
 */
 
 bool existeFile(char *file);

@@ -1,5 +1,5 @@
 //////////////////////////////////////////////////////////   ptar - Extracteur d'archives durable et parallèle  ///////////////////////////////////////////////////////////////////
-///////////////////////////////////////////////////////////////////////   v 1.7.0.0        09/12/2016   ///////////////////////////////////////////////////////////////////////////////////
+///////////////////////////////////////////////////////////////////////   v 1.7.0.1        11/12/2016   ///////////////////////////////////////////////////////////////////////////////////
 
 #include <stdio.h>
 #include <stdlib.h>
@@ -17,6 +17,8 @@ int main(int argc, char *argv[]) {
 	*/
 
 	int j;							//Indice de la boucle for pour la création des threads;
+	int k;							//Indice de la boucle for de destruction de threads éventuelle.
+	int status;					//Retour des pthread_create
 	int opt;						//Valeur de retour de getopt().
 	int waitstatus;			//Status pour le waitpid.
 	pthread_t *tabthrd;	//Tableau des idf des threads;
@@ -31,7 +33,7 @@ int main(int argc, char *argv[]) {
 
 
 	/*
-	Traitement des options de ligne de commande. Set des flags (var globales) d'options.
+	Traitement des options de ligne de commande. Set des flag_s (var globales) d'options.
 	*/
 
 	while ((opt=getopt(argc, argv, "xelzp:")) != -1) {
@@ -105,33 +107,38 @@ int main(int argc, char *argv[]) {
 	}
 
 	/*
-	Création des threads
+	Création des threads et Lancement de la procédure.
 	*/
 
-	//Si on ne souhaite pas utiliser plusieurs threads, on n'en initialise qu'un (le thread principal).
-	if (thrd==0) {
-		nthreads=1;
+	if (decomp==1) {
+		//Tableau des pthread_t
+		tabthrd=malloc(nthreads*sizeof(pthread_t));
+
+		//Lancement de chaque threads.
+		for (j=0; j<nthreads; j++) {
+			status=pthread_create(&tabthrd[j], NULL, (void *)traitement, argv[optind]);
+
+			//Si une erreur est provoquée lors de la création, on arrete les autres threads puis le programme.
+			if (status<0) {
+				printf("Erreur lors de la création du thread numéro %d.", j);
+				for (k=0; k<j; k++) {
+						pthread_cancel(tabthrd[k]);
+				}
+				return 1;
+			}
+		}
+
+		//Join des threads
+		for (j=0; j<nthreads; j++) {
+			(void)pthread_join(tabthrd[j], &ret);
+		}
+
+		//Libération du pointeur sur les threads.
+		free(tabthrd);
 	}
-	//Sinon on initialise le thread principal + nthreads threads.
+	//Si on ne veut pas utiliser de threads, on appelle tous simplement la procédure.
 	else {
-		nthreads++;
+		traitement(argv[optind]);
 	}
-
-	//Tableau des pthread_t
-	tabthrd=malloc(nthreads*sizeof(pthread_t));
-
-	//Lancement de chaque threads.
-	for (j=0; j<nthreads; j++) {
-		pthread_create(&tabthrd[j], NULL, traitement(argv[optind]), &j);
-	}
-
-	//Join des threads
-	for (j=0; j<nthreads; j++) {
-		(void)pthread_join(tabthrd[j], &ret);
-	}
-
-	//Libération du pointeur sur les threads.
-	free(tabthrd);
-
 	return 0;
 }

@@ -1,6 +1,6 @@
 CC = gcc
 LDFLAGS = -lpthread -rdynamic -ldl
-CFLAGS = -Wall -Wextra
+CFLAGS = -Wall -Wextra -g
 OBJECTS = main.o checkfile.o utils.o #sorting.o
 
 all: ptar

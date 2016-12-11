@@ -11,8 +11,8 @@ Auteurs
 
 Dépendances
 
-    zlib         (il faut que libz.so soit dans /usr/lib/)
-    groff-utf8   (pour un des moyens de lecture de la page man ptar(1)
+    zlibc zlib1g zlib1g-dev        (La bibliothèque zlib)
+    groff-utf8                     (optionnel, pour ptar(1))
 
 Build & execute:
 
@@ -74,6 +74,12 @@ Utilisation de ptar
 	    ./rmtest.sh
 
 
+    	Il est possible d'également décompresser un fichier.gz (sans archivage), mais les attributs (tels que premissions, gid et uid) ne sont pas pas traités.
+    	Les permissions sont forcées : Lecture ecriture et recherche pour l'utilisateur.
+    	Cette fonction est purement optionnelle et en bêta.
+    	./ptar -z ptar.1.gz
+
+
 Page de manuel ptar(1)
 
 	Lire la page de manuel de ptar sans manipulations/droits super-utilisateurs au préalable
@@ -108,24 +114,30 @@ Page de manuel ptar(1)
 
 Dernière Màj
 
-	09/12/2016    13:03     version 1.7.0.0 : Version stable de ptar toutes étapes achevées (multithreadé)
+	11/12/2016    15:05     version 1.7.1.0 : Version stable de ptar multithreadé (corrigé) et optimisé en compatibilité.
 
 
 Debug
-
-
-  ptar vérifie la somme de contrôle (checksum) des fichiers de l'archive, si l'un des éléments est corrompu, ptar termine et renvoie une erreur.
 
 	Pour observer le code brute d'une fichier et son affichage
 		hexdump -C testfalsearch.tar
 		hexdump -C testf.tar
 		hexdump -C testall.tar
 
-	Le fichier logfile.txt généré lors de l'extraction si l'option -e est spécifiée contient les codes de retours des fonctions utilisées pendant l'extraction.
-	Générer un logfile lors de l'extraction d'une archive :
-		./ptar -xe archive_test/testall.tar
+  Pour voir les includes à la compilation, ajouter aux CFLAGS du Makefile :
+    -I<path>
 
-	Il est possible d'également décompresser un fichier.gz (sans archivage), mais les attributs (tels que premissions, gid et uid) ne sont pas pas traités.
-	Les permissions sont forcées : Lecture ecriture et recherche pour l'utilisateur.
-	Cette fonction est purement optionnelle et en bêta.
-		./ptar -z ptar.1.gz
+  Pour déboguer avec GDB, il est préférable d'ajouter aux CFLAGS du Makefile (génère une table des symboles pour débug):
+    -g
+
+  Le fichier logfile.txt généré lors de l'extraction si l'option -e est spécifiée contient les codes de retours des fonctions utilisées pendant l'extraction.
+  Générer un logfile lors de l'extraction d'une archive :
+    ./ptar -xe archive_test/testall.tar
+
+  Pour compter les threads utilisé dans le programme, lancer cette commande dans un terminal parallèle
+    ps -T -C ptar
+
+  Pour bien charger la bibliotheque dynamique, il faut parfois bien set la variable d'environnement LD_LIBRARY_PATH
+    export LD_LIBRARY_PATH=<path_du_raccourci.so>
+
+  ptar vérifie la somme de contrôle (checksum) des fichiers de l'archive, si l'un des éléments est corrompu, ptar termine et renvoie une erreur.

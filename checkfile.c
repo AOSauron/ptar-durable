@@ -80,7 +80,7 @@ bool checkfile(char *file, FILE *logfile) {
 		else if (extract==0 && listingd==0 && decomp==1) { //Cas spécial .gz pur.
 			isonlygz=true;
 			printf("Le nom du fichier %s ne semble pas être une archive .tar ou .tar.gz. Tentative de décompression...\n", file);
-			//Appel au module optionnel de dézippage.
+			//Appel au module optionnel de dézippage. Activé par défaut.
 			decompress(file, logfile, isonlygz, filenamegz);
 			return false;
 		}

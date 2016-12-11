@@ -29,7 +29,6 @@ Correspondantes aux options suivantes :
 #include <pthread.h>
 
 #include "checkfile.h"
-#include "zlib/zlib.h"
 #include "utils.h"
 
 /*
@@ -65,6 +64,10 @@ void *traitement(char *folder) {
 	int size;													//Taille du champ size du header, c'est la taille des données suivant le header.
 	int size_reelle;									//Taille des données utiles suivant le header, multiple de 512, puisque les données sont stockées dans des blocks de 512 octets.
 
+	//gzFile (*gzopen)();								//Fonction d'open dans un gzFile.
+	//int (*gzread)();									//Fonction de read dans un gzFile.
+	//int (*gzclose)();									//Fonctin de close d'un gzFile.
+
 	//Initialisation des tableaux dynamiques à NULL pour les realloc (obligatoire).
 	mtimes=NULL;
 	mtimestemp=NULL;
@@ -73,7 +76,6 @@ void *traitement(char *folder) {
 	size_reelle=0;
 	isEOF=false;
 	isCorrupted=false;
-
 
 	/*
 	Tester l'argument (existence et nom bien formé).
@@ -392,6 +394,7 @@ int extraction(headerTar *head, char *namex, char *data, FILE *logfile) {
 	struct timeval *tv;
 	char *name;
 	char filename[255];
+	char typeflag;
 
 	int mode;
 	int size;
@@ -437,6 +440,12 @@ int extraction(headerTar *head, char *namex, char *data, FILE *logfile) {
 	tv[1].tv_sec=mtime;
 	tv[1].tv_usec=0;
 
+	//Le typeflag NUL doit être traité comme un typeflag 0 (voir tar(5))
+	if (head->typeflag[0]==0) {
+		typeflag='0';
+	}
+	else typeflag=head->typeflag[0];
+
 	//Récupération du uid et gid convertit depuis l'octal en décimal.
 	uid=strtol(head->uid, NULL, 8);
 	gid=strtol(head->gid, NULL, 8);
@@ -453,7 +462,7 @@ int extraction(headerTar *head, char *namex, char *data, FILE *logfile) {
 	size=strtol(head->size, NULL, 8);
 
 	//Séléction du type d'élément et actions.
-	switch (head->typeflag[0]) {
+	switch (typeflag) {
 		//Fichiers réguliers
 		case '0' :
 			//On vérifie si l'arborescence de dossiers existe et on la crée le cas échéant.
@@ -496,11 +505,9 @@ int extraction(headerTar *head, char *namex, char *data, FILE *logfile) {
 					recoverpath(head->linkname, head->name, filename);
 			}
 			else {
-				/*   CAS OU ON A /home/etc../.../fichier   */
+				//Cas où le linkname contient le chemin absolu
 				strcpy(filename,head->linkname);
 			}
-			//printf("LE FILENAME DE LA MORT FDP WSH : %s\n", filename);
-
 			//On vérifie si l'arborescence de dossiers existe et on la crée le cas échéant.
 			chkpath=checkpath(name, logfile);
 			if (logflag==1) fprintf(logfile, "[Lien symobolique %s] Code retour du checkpath : %d\n", name, chkpath);
@@ -558,12 +565,12 @@ int extraction(headerTar *head, char *namex, char *data, FILE *logfile) {
 
 
 /*
+OBSOLETE DEPUIS 1.7.1
 Traite la décompression de l'archive .tar.gz avec zlib (éventuellement d'une archive .gz pure aussi)
 */
 
 const char *decompress(char *folder, FILE *logfile, bool isonlygz, const char *filenamegz) {
 
-	void *handle;
 	char *error;
 	char *erroropen;
 	char *errorread;
@@ -573,11 +580,11 @@ const char *decompress(char *folder, FILE *logfile, bool isonlygz, const char *f
 	char *data;
 	gzFile file;
 
-	gzFile (*gzopen)();
-	int (*gzread)();
-	int (*gzclose)();
 	int (*gzrewind)();
 	int (*gzeof)();
+	gzFile (*gzopen)();                                         //Fonction gzOpen chargée par dlopen.
+	int (*gzread)();                                            //Fonction gzRead chargée par dlopen.
+	int (*gzclose)();
 	int status;
 	int stat;
 	int etat;
@@ -645,6 +652,11 @@ const char *decompress(char *folder, FILE *logfile, bool isonlygz, const char *f
 		exit(EXIT_FAILURE);
 	}
 
+	/* FIN du chargement, on fait un return dans notre nouvelle straégie. */
+
+
+
+	/* ********************   A DESACTIVER   ***************************** */
 	/* ECRITURE dans un tube nommé, en vu de traitement dans traitement() */
 
 	//Le nom du tube nommé est passé en variable globale.
@@ -825,4 +837,15 @@ bool checksum(headerTar *head) {
 		return true;
 	}
 	else return false;
+}
+
+
+
+/*
+Charge la librairie dynamique zlib et les fonctions utilisées pour la décompression/extraction.
+*/
+
+void loadzlib() {
+
+
 }
