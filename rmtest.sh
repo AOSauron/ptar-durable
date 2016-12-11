@@ -6,6 +6,8 @@
 #Adapté pour la version 1.3.1.0 de ptar (et de ses exemples) minimum
 
 rm -rf test/
+rm -rf include/
+rm fichierc
 rm f1.*
 rm *.jpg
 

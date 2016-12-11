@@ -9,6 +9,7 @@
 #include <pthread.h>
 
 #include "utils.h"
+#include "checkfile.h"
 
 int main(int argc, char *argv[]) {
 
@@ -31,6 +32,9 @@ int main(int argc, char *argv[]) {
 	decomp=0;
 	logflag=0;
 
+	//Faire taire ces warning unused
+	MutexRead=(pthread_mutex_t) MutexRead;
+	MutexWrite=(pthread_mutex_t) MutexWrite;
 
 	/*
 	Traitement des options de ligne de commande. Set des flag_s (var globales) d'options.
@@ -78,6 +82,16 @@ int main(int argc, char *argv[]) {
 	}
 
 	/*
+	Tester l'argument (existence et nom bien formé).
+	*/
+
+	if (checkfile(argv[optind], logfile)==false) {
+		//Les messages d'erreurs sont gérés dans checkfile.c.
+		//Si l'archive est seulement compressée, tente une décompression directe: ptar n'est pas prévu pour cela, ce module est donc en bêta (développement inutil)
+		return 1;
+	}
+
+	/*
 	Génération du logfile si besoin -e. Option pour développeurs. (utile pour extraction et décompression)
 	*/
 
@@ -104,6 +118,14 @@ int main(int argc, char *argv[]) {
 	//Cas où pas compressée.
 	else {
 		file=open(argv[optind], O_RDONLY);
+		//Cas d'erreur -1 du open().
+		if (file<0) {
+			printf("Erreur d'ouverture du fichier, open() retourne : %d. Le fichier n'existe pas ou alors est corrompu.\n", file);
+			close(file);
+			if (logflag==1) fclose(logfile); //Aussi le logfile.
+			return 1;
+		}
+
 	}
 
 	/*

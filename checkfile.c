@@ -39,6 +39,10 @@ bool checkfile(char *file, FILE *logfile) {
 	token_suivant="";
 	isonlygz=false;
 
+	//Faire taire ces warning unused
+	MutexRead=(pthread_mutex_t) MutexRead;
+	MutexWrite=(pthread_mutex_t) MutexWrite;
+
 	//Test de l'existence d'un argument.
 	if (file==NULL) {
 		printf("ptar : erreur pas d'archive tar en argument. Utilisation: ./ptar [-xlzp NBTHREADS] emplacement_archive.tar[.gz]\n");
@@ -124,7 +128,6 @@ bool existeDir(char *folder) {
 	dirstream=opendir(folder);
 
 	if (dirstream==NULL) {
-		closedir(dirstream);
 		return false;
 	}
 	else {
@@ -141,18 +144,16 @@ Retourne true si il existe, false sinon.
 
 bool existeFile(char *file) {
 
-	int fd;
+	FILE *fd;
 
-	//Les flags O_EXCL et O_CREAT assure que si le fichier existe, l'open échoue.
-	fd=open(file, O_EXCL | O_CREAT, S_IRWXU | S_IRWXG | S_IRWXO);
-
-	if (fd<0) {
-		close(fd);
-		return true;
+	//Utiliser fopen est mieux que open avec O_CREAT et O_EXCL, pour les modes.
+	fd=fopen(file, "r");
+	if (fd==NULL) {
+		return false;
 	}
 	else {
-		close(fd);
-		return false;
+		fclose(fd);
+		return true;
 	}
 }
 
@@ -191,8 +192,6 @@ char *recoverpath(char *linkname, char *pathlink, char pathname[]) {
 		if (strcmp(token_courant,"")!=0) strcat(pathname, delim);
  	} while (token != NULL);
 
-	//printf("PATHNAME : PATH du link : %s\n",pathname);
-
 	//Récupération de la deuxième partie du path et concaténation finale.
 	token=linkbuf;
 
@@ -203,8 +202,6 @@ char *recoverpath(char *linkname, char *pathlink, char pathname[]) {
 	}
 
 	strcat(pathname,token);
-
-	//printf("PATHNAME : TOTAL PATH : %s\n",pathname);
 
 	return pathname;
 }
@@ -245,22 +242,19 @@ int checkpath(char *path, FILE *logfile) {
 	currentfolder=token;
 	strcpy(pathtotest, currentfolder);
 	strcat(pathtotest, delim);
-	//printf("\n");
 
 	do {
-		//printf("CURRENT FOLDER : %s\n", pathtotest);
 		token=strtok(NULL, delim);
 		followingfolder=token;
-		//printf("FOLLOWING FOLDER : %s\n", token);
 		//Si le token suivant est NULL, c'est qu'on a atteind l'élément concerné (donc on return avant de tenter un mkdir dessus)
 		if (token==NULL) {
-			//printf("\n");
 			break;
 		}
 		if (existeDir(pathtotest)==false) {
-			//On crée le dossier avec, pour l'instant, tous les droits (on ne sait jamais).
-			etat=mkdir(pathtotest, S_IRWXU | S_IRWXG | S_IRWXO);
-			if (logflag==1) fprintf(logfile, "[Dossier %s] Code retour du errno du mkdir de checkpath: %s\n", pathtotest, strerror(errno));
+			//On crée le dossier avec, pour l'instant, tous les droits (on ne sait jamais) sauf écriture pour other.
+			printf("%s\n", pathtotest);
+			etat=mkdir(pathtotest, S_IRWXU | S_IRWXG | S_IROTH | S_IXOTH);
+			if (logflag==1) fprintf(logfile, "[Dossier %s] Code retour du errno du mkdir de checkpath (ou opendir si No such file or dir): %s\n", pathtotest, strerror(errno));
 			if (etat<0) etatfinal=-1;
 		}
 		strcat(pathtotest, followingfolder);

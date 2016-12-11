@@ -48,6 +48,11 @@ void *traitement(char *folder) {
 
 	char *data; 		   								//Buffer pour les données suivant le header.
 	char dirlist[MAXDIR][PATHLENGTH];	//Liste des dossiers. La taille du chemin d'accès est limitée à 255 octets, contenance max : 2048 dossiers.
+	char typeflag;										//Le type de fichier : '0' = fichier, '2' = lien symbolique, '5' = dossier.
+	char ssize[12];										//Champ size avec \0 forcé.
+	char sustar[6];										//Champ magic avec \0 forcé.
+	char smtime[12];									//Champ mtime avec \0 forcé.
+	char sname[100];									//Champ name avec \0 forcé.
 
 	bool isEOF; 											//Flag d'End Of File : true <=> Fin de fichier atteint.
 	bool isCorrupted;									//Flag de checksum : true <=> header corrompu.
@@ -58,15 +63,10 @@ void *traitement(char *folder) {
 	int extreturn;	     							//Valeur de retour de extraction().
 	int nbdir; 		     								//Nombre de dossiers (sert au utime final).
 	int utim;													//Valeur de retour des utime() finaux pour les dossiers.
-	int typeflag;											//Le type de fichier : 0 = fichier, 2 = lien symbolique, 5 = dossier.
 	int mtime;												//Date de modification en secondes depuis l'Epoch (valeur décimale).
 	int k;														//Indice pour la boucle for du utime final des dossiers.
 	int size;													//Taille du champ size du header, c'est la taille des données suivant le header.
 	int size_reelle;									//Taille des données utiles suivant le header, multiple de 512, puisque les données sont stockées dans des blocks de 512 octets.
-
-	//gzFile (*gzopen)();								//Fonction d'open dans un gzFile.
-	//int (*gzread)();									//Fonction de read dans un gzFile.
-	//int (*gzclose)();									//Fonctin de close d'un gzFile.
 
 	//Initialisation des tableaux dynamiques à NULL pour les realloc (obligatoire).
 	mtimes=NULL;
@@ -76,25 +76,6 @@ void *traitement(char *folder) {
 	size_reelle=0;
 	isEOF=false;
 	isCorrupted=false;
-
-	/*
-	Tester l'argument (existence et nom bien formé).
-	*/
-
-	if (checkfile(folder, logfile)==false) {
-		//Les messages d'erreurs sont gérés dans checkfile.c.
-		//Si l'archive est seulement compressée, tente une décompression directe: ptar n'est pas prévu pour cela, ce module est donc en bêta (développement inutil)
-		if(logflag==1) fclose(logfile);
-		exit(EXIT_FAILURE);
-	}
-
-	//Cas d'erreur -1 du open() ou du decompress : problème dans le fichier.
-	if (file<0) {
-		printf("Erreur d'ouverture du fichier, open() retourne : %d. Le fichier n'existe pas ou alors est corrompu.\n", file);
-		close(file);
-		if (logflag==1) fclose(logfile); //Aussi le logfile.
-		exit(EXIT_FAILURE);
-	}
 
 	/*
 	Traitement de chaque header les uns après les autres
@@ -123,19 +104,25 @@ void *traitement(char *folder) {
 		//On délock le mutex de lecture.
 		pthread_mutex_unlock(&MutexRead);
 
+		//Parsing correct du champ name.
+		strncpy(sname, head.name, sizeof(head.name));
+		strcat(sname,"\0");	//Forcing de la terminaison par \0
+
 		/* La fin d'une archive tar se termine par 2 enregistrements d'octets valant 0x0. (voir tar(5))
 		Donc la string head.name du premier des 2 enregistrement est forcément vide.
 		On s'en sert donc pour détecter la fin du fichier (End Of File) et ne pas afficher les 2 enregistrements de 0x0. */
 
 		//Détection de l'End Of File : met le flag isEOF à true et stoppe la boucle. Le flag est destiné à aider les développeurs (il ne sert pas à stopper la boucle)
-		if (strlen(head.name)==0 || status==0) {
+		if (strlen(sname)==0 || status==0) {
 			isEOF=true;
 			break;
 		}
 
 		//Cas où le fichier passé en paramètre n'est pas une archive tar POSIX ustar : vérification avec le champ magic du premier header.
 		//Si le premier header est validé, alors l'archive est conforme et ce test ne devrait pas être infirmé quelque soient les header suivant, par construction.
-		if (strcmp("ustar", head.magic)!=0 && strcmp("ustar  ", head.magic)!=0) {
+		strncpy(sustar, head.magic, sizeof(head.magic));
+		strcat(sustar,"\0");						//Forcing de la terminaison par \0
+		if (strcmp("ustar", sustar)!=0 && strcmp("ustar  ", sustar)!=0 && strcmp("ustar ", sustar)!=0) {
 			printf("Le fichier %s ne semble pas être une archive POSIX ustar.\n", folder);
 			if (logflag==1) fclose(logfile);
 			close(file);
@@ -149,7 +136,7 @@ void *traitement(char *folder) {
 		isCorrupted=checksum(&head);
 
 		if (isCorrupted==true) {
-			printf("La somme de contrôle (checksum) de %s est invalide.\n", head.name);
+			printf("La somme de contrôle (checksum) de %s est invalide.\n", sname);
 			break;
 		}
 
@@ -158,7 +145,9 @@ void *traitement(char *folder) {
 		*/
 
 		//On récupère la taille (head.size) des données suivant le header. La variable head.size est une string, contenant la taille donnée en octal, convertit en décimal.
-		size=strtol(head.size, NULL, 8);
+		strncpy(ssize, head.size, sizeof(head.size));
+		strcat(ssize,"\0");	//Forcing de la terminaison par \0
+		size=strtol(ssize, NULL, 8);
 
 		// (2) Si des données non vides suivent le header (en pratique : si il s'agit d'un header fichier non vide), on passe ces données sans les afficher:
 		// On récupère les données dans un buffer pour l'extraction.
@@ -216,7 +205,7 @@ void *traitement(char *folder) {
 		}
 		//Listing basique :
 		else {
-			printf("%s\n", head.name);
+			printf("%s\n", sname);
 		}
 
 		/*
@@ -229,16 +218,19 @@ void *traitement(char *folder) {
 			pthread_mutex_lock(&MutexWrite);
 
 			//Récupération du type d'élément.
-			typeflag=strtol(head.typeflag, NULL, 10);
+			typeflag=head.typeflag[0];
 
 			//Récupération du nom dans un tableau si c'est un dossier (et de son mtime)
-			if (typeflag==5) {
+			if (typeflag=='5') {
 
 				//On récupère le nom
-				strcpy(dirlist[nbdir], head.name);
+				strcpy(dirlist[nbdir], sname);
 
 				//Réalloc de mtimes
+				strncpy(smtime, head.mtime, sizeof(head.mtime));
+				strcat(smtime,"\0");	//Forcing de la terminaison par \0
 				mtime=strtol(head.mtime, NULL, 8);
+
 				mtimestemp=realloc(mtimes, (nbdir+1)*sizeof(int));
 				if (mtimestemp==NULL) {
 							free(mtimes);    //Désallocation
@@ -248,7 +240,6 @@ void *traitement(char *folder) {
 				else mtimes=mtimestemp;
 
 				//Récupération à proprement parler.
-				mtime=strtol(head.mtime, NULL, 8);
 				mtimes[nbdir]=mtime;
 				nbdir++; //Incrémentaion du nombre de dossiers (représente enfait l'indice dans les tableaux)
 			}
@@ -256,7 +247,7 @@ void *traitement(char *folder) {
 			//Extraction de l'élément.
 			extreturn=extraction(&head, NULL, data, logfile);
 
-			if (logflag==1) fprintf(logfile, "Retour d'extraction de %s : %d\n", head.name, extreturn);
+			if (logflag==1) fprintf(logfile, "Retour d'extraction de %s : %d\n", sname, extreturn);
 
 			//On débloque le mutex en écriture.
 			pthread_mutex_unlock(&MutexWrite);
@@ -339,34 +330,57 @@ int listing(headerTar head) {
 	time_t mtime;
 	struct tm ts;
 	char bmtime[80];
+	char typeflag;
+	char ssize[12];
+	char suid[8];
+	char sgid[8];
+	char smode[8];
+	char smtime[12];
+	char sname[100];
 
 	int size;
 	int mode;
 	int uid;
 	int gid;
-	int typeflag;
+
+	//Parsing correct de la terminaison par \0
+	strncpy(ssize, head.size, sizeof(head.size));
+	strncpy(suid, head.uid, sizeof(head.uid));
+	strncpy(sgid, head.gid, sizeof(head.gid));
+	strncpy(smode, head.mode, sizeof(head.mode));
+	strncpy(smtime, head.mtime, sizeof(head.mtime));
+	strncpy(sname, head.name, sizeof(head.name));
+	strcat(ssize,"\0");
+	strcat(suid,"\0");
+	strcat(sgid,"\0");
+	strcat(smode,"\0");
+	strcat(smtime,"\0");
+	strcat(sname,"\0");
 
 	//Récupération de la taille (comme dans le main)
-	size=strtol(head.size, NULL, 8);
+	size=strtol(ssize, NULL, 8);
 
 	//head.mode = les permissions du fichier en octal, on les convertit en décimal.
-	mode=strtol(head.mode, NULL, 8);
+	mode=strtol(smode, NULL, 8);
 
 	//Récupération du uid et gid convertit depuis l'octal
-	uid=strtol(head.uid, NULL, 8);
-	gid=strtol(head.gid, NULL, 8);
+	uid=strtol(suid, NULL, 8);
+	gid=strtol(sgid, NULL, 8);
 
 	//Récupération du typeflag
-	typeflag=strtol(head.typeflag, NULL, 10);
+	/*
+	ATTENTION IL FAUT SELECTIONNER SEULEMENT LE PREMIER CARACTERE SINON IL CHOPE PARFOIS LE CHAMP SUIVANT ET FOUS LA MERDE!
+	*/
+	typeflag=head.typeflag[0];
 
 	//Récupération du mtime et conversion/formatage sous la forme désirée. (mtime est en secondes écoulées depuis l'Epoch !)
-	mtime=strtol(head.mtime, NULL, 8);
+	mtime=strtol(smtime, NULL, 8);
 	ts=*localtime(&mtime);  //Formate en "aaaa-mm-jj hh:mm:ss"
 	strftime(bmtime, sizeof(bmtime), "%Y-%m-%d %H:%M:%S", &ts);
 
 	//Print des permissions de l'élément
-	if (typeflag==5) printf("d");
-	else printf( (typeflag==2 || typeflag==1) ? "l" : "-");
+	if (typeflag=='5') printf("d");
+	else printf( (typeflag=='2') ? "l" : "-");
 	printf( (mode & S_IRUSR) ? "r" : "-");
 	printf( (mode & S_IWUSR) ? "w" : "-");
 	printf( (mode & S_IXUSR) ? "x" : "-");
@@ -378,7 +392,7 @@ int listing(headerTar head) {
 	printf( (mode & S_IXOTH) ? "x" : "-");
 
 	//Print des autres informations : uid, gid, taille, date de modification, nom, et nom du fichier linké (vide si ce n'est pas un lien symbo)
-	printf(" %d/%d %d %s %s%s%s\n", uid, gid, size, bmtime, head.name, (typeflag==2 || typeflag==1) ? " -> " : "", (typeflag==2 || typeflag==1) ? head.linkname : "");
+	printf(" %d/%d %d %s %s%s%s\n", uid, gid, size, bmtime, sname, (typeflag=='2') ? " -> " : "", (typeflag=='2') ? head.linkname : "");
 
 	return 0;
 }
@@ -395,6 +409,14 @@ int extraction(headerTar *head, char *namex, char *data, FILE *logfile) {
 	char *name;
 	char filename[255];
 	char typeflag;
+	char ssize[12];
+	char suid[8];
+	char sgid[8];
+	char smode[8];
+	char smtime[12];
+	char sname[100];
+	char slink[100];
+	bool notExisting;
 
 	int mode;
 	int size;
@@ -411,6 +433,7 @@ int extraction(headerTar *head, char *namex, char *data, FILE *logfile) {
 	int sync;
 	int utim;
 	int chkpath;
+	int rm;
 
 	//Nécessaire d'initialiser ces flags car pas initialisés dans tous les cas (et causent un 'faux' return -1 dans certains cas).
 	file=0;
@@ -421,17 +444,34 @@ int extraction(headerTar *head, char *namex, char *data, FILE *logfile) {
 	etatuid=0;
 	etat=0;
 	chkpath=0;
+	notExisting=false;
+
+	//Parsing correct de la terminaison par \0
+	strncpy(ssize, head->size, sizeof(head->size));
+	strncpy(suid, head->uid, sizeof(head->uid));
+	strncpy(sgid, head->gid, sizeof(head->gid));
+	strncpy(smode, head->mode, sizeof(head->mode));
+	strncpy(smtime, head->mtime, sizeof(head->mtime));
+	strncpy(sname, head->name, sizeof(head->name));
+	strncpy(slink, head->linkname, sizeof(head->linkname));
+	strcat(ssize,"\0");
+	strcat(suid,"\0");
+	strcat(sgid,"\0");
+	strcat(smode,"\0");
+	strcat(smtime,"\0");
+	strcat(sname,"\0");
+	strcat(slink,"\0");
 
 	//Récupération du name
 	if (namex!=NULL) {
 		name=namex;
 	}
 	else {
-		name=head->name;
+		name=sname;
 	}
 
 	//Récupération du mtime en secondes depuis l'Epoch. (voir tar(5))
-	mtime=strtol(head->mtime, NULL, 8);
+	mtime=strtol(smtime, NULL, 8);
 
 	//On set les champs de la structure timeval[2] pour utimes() et lutimes().
 	tv=malloc(2*sizeof(struct timeval));
@@ -447,8 +487,8 @@ int extraction(headerTar *head, char *namex, char *data, FILE *logfile) {
 	else typeflag=head->typeflag[0];
 
 	//Récupération du uid et gid convertit depuis l'octal en décimal.
-	uid=strtol(head->uid, NULL, 8);
-	gid=strtol(head->gid, NULL, 8);
+	uid=strtol(suid, NULL, 8);
+	gid=strtol(sgid, NULL, 8);
 
 	//On set l'uid et le gid du processus (cette instance d'extraction()) à ceux de l'élément à extraire. Voir setuid(3) et setgid(3).
 	etatuid=setuid(uid);
@@ -456,22 +496,22 @@ int extraction(headerTar *head, char *namex, char *data, FILE *logfile) {
 	if (logflag==1) fprintf(logfile, "[Element %s] Code retour du setuid : %d et du setgid : %d\n", name, etatuid, etatgid);
 
 	//Récupération des permissions du fichier en octal, converties en décimal.
-	mode=strtol(head->mode, NULL, 8);
+	mode=strtol(smode, NULL, 8);
 
 	//Récupération de la taille (comme dans le main).
-	size=strtol(head->size, NULL, 8);
+	size=strtol(ssize, NULL, 8);
 
 	//Séléction du type d'élément et actions.
 	switch (typeflag) {
 		//Fichiers réguliers
 		case '0' :
-			//On vérifie si l'arborescence de dossiers existe et on la crée le cas échéant.
-			chkpath=checkpath(name, logfile);
-			//Ajustement des permissions (dans le cas de l'extraction post décompression) : le fichier existe déjà donc file<0 à cause de O_EXCL
-			if (existeFile(name)==false) {
+			//Si le fichier existe on met à jour ses permissions.
+			if (existeFile(name)==true) {
 				etat=chmod(name, mode);
 				if (logflag==1) fprintf(logfile, "[Fichier %s] Code retour du chmod : %d\n", name, etat);
 			}
+			//On vérifie si l'arborescence de dossiers existe et on la crée le cas échéant.
+			chkpath=checkpath(name, logfile);
 			if (logflag==1) fprintf(logfile, "[Fichier %s] Code retour du checkpath : %d\n", name, chkpath);
 			//open() avec O_CREAT pour créer le fichier et O_WRONLY pour pouvoir écrire dedans. O_EXCL pour détecerla préexistence.
 			file=open(name, O_CREAT | O_WRONLY, mode);
@@ -479,7 +519,7 @@ int extraction(headerTar *head, char *namex, char *data, FILE *logfile) {
 
 			//Ecriture : Voir la partie (2) de traitement(): récupération de données. Il faut utiliser size et pas size_reelle cette fois-ci
 			if (size > 0) {  //Ecriture si seulement le fichier n'est pas vide !
-      	writ=write(file, data, size);
+				writ=write(file, data, size);
 				if (logflag==1) fprintf(logfile, "[Fichier %s] Code retour du write : %d\n", name, writ);
 				//Durabilité de l'écriture sur disque si option -p
 				if (thrd==1) {
@@ -499,34 +539,56 @@ int extraction(headerTar *head, char *namex, char *data, FILE *logfile) {
 			break;
 		//Liens symboliques
 		case '2' :
-			//Dans le cas ou le fichier est "plus haut ou au même niveau" que le lien, le path est déjà complet.
-			if (head->linkname[0]!='/') {
-					strcpy(filename,"");
-					recoverpath(head->linkname, head->name, filename);
+			//Dans le cas ou le fichier/dossier est "plus haut ou au même niveau" que le lien, le path est déjà complet.
+			if (slink[0]!='/') {
+				strcpy(filename,"");
+				recoverpath(slink, name, filename);
 			}
 			else {
 				//Cas où le linkname contient le chemin absolu
-				strcpy(filename,head->linkname);
+				strcpy(filename,slink);
 			}
 			//On vérifie si l'arborescence de dossiers existe et on la crée le cas échéant.
 			chkpath=checkpath(name, logfile);
 			if (logflag==1) fprintf(logfile, "[Lien symobolique %s] Code retour du checkpath : %d\n", name, chkpath);
-			//On vérifie si le fichier pointé existe et on le créer le cas échéant.
-			if (existeFile(filename)==false) {
-					//Création de l'arborescence du fichier pointé.
-					chkpath=checkpath(filename, logfile);
-					if (logflag==1) fprintf(logfile, "[Lien symobolique %s] Code retour du checkpath du fichier pointé : %d\n", name, chkpath);
-					//Création du fichier avec tous les droits (temporaires, seront mis à jour plus tard)
-					file=open(filename, O_CREAT | O_WRONLY, S_IRWXO | S_IRWXO | S_IRWXO);
-					close(file);
+			//On vérifie si le fichier/dossier pointé existe et on le créer le cas échéant.
+			//Cas du dossier.
+			if (filename[strlen(filename)-1]=='/' && existeDir(filename)==false) {
+				notExisting=true;
+				//Création de l'arborescence du dossier pointé.
+				chkpath=checkpath(filename, logfile);
+				if (logflag==1) fprintf(logfile, "[Lien symobolique %s] Code retour du checkpath du dossier pointé : %d\n", name, chkpath);
+				//Création du dossier avec tous les droits (temporaires, seront mis à jour plus tard)
+				mkdir(filename, S_IRWXO | S_IRWXO | S_IRWXO);
+			}
+			//Cas du reste (fichier/symlink)
+			else if (existeFile(filename)==false) {
+				notExisting=true;
+				//Création de l'arborescence du fichier pointé.
+				chkpath=checkpath(filename, logfile);
+				if (logflag==1) fprintf(logfile, "[Lien symobolique %s] Code retour du checkpath du fichier pointé : %d\n", name, chkpath);
+				//Création du fichier avec tous les droits (temporaires, seront mis à jour plus tard)
+				file=open(filename, O_CREAT | O_WRONLY, S_IRWXO | S_IRWXO | S_IRWXO);
+				close(file);
 			}
 			//On créé ensuite le lien symbolique
-			etat=symlink(head->linkname, name);
+			etat=symlink(slink, name);
 			if (logflag==1) fprintf(logfile, "[Lien symbolique %s] Code retour du symlink : %d\n", name, etat);
 			//On utilise lutimes car utime ne fonctionne pas sur les symlink : voir lutimes(3).
 			utim=lutimes(name, tv);
 			if (logflag==1) fprintf(logfile, "[Lien symbolique %s] Code retour du utime : %d\n", name, utim);
-			//free(filename);
+			//Si l'élément pointé n'existait pas, on le supprime pour une création éventuelle plus propre tard.
+			if (notExisting==true) {
+				//Cas d'un dossier.
+				if (filename[strlen(filename)-1]=='/') {
+					rm=rmdir(filename);
+				}
+				//Le reste.
+				else {
+					rm=remove(filename);
+				}
+				if (logflag==1) fprintf(logfile, "[Lien symbolique %s] Code retour du remove/rmdir du tempfile : %d\n", name, rm);
+			}
 			break;
 		//Répertoires
 		case '5' :
@@ -534,20 +596,20 @@ int extraction(headerTar *head, char *namex, char *data, FILE *logfile) {
 			if (existeDir(name)==true) {
 				//Si le dossier existe et qu'on a son header, on met à jour ses permissions.
 				etat=chmod(name, mode);
-				if (logflag==1) fprintf(logfile, "[Fichier %s] Code retour du chmod : %d\n", name, etat);
+				if (logflag==1) fprintf(logfile, "[Dossier %s] Code retour du chmod : %d\n", name, etat);
 			}
 			//Le dossier n'existe pas :
 			else {
 				//On crée son arborescence de dossiers parente.
 				chkpath=checkpath(name, logfile);
-				if (logflag==1) fprintf(logfile, "[Dossier %s] Code retour du checkpath du fichier pointé : %d\n", name, chkpath);
+				if (logflag==1) fprintf(logfile, "[Dossier %s] Code retour du checkpath du dossier: %d\n", name, chkpath);
 				//Puis on crée le dossier concerné.
 				etat=mkdir(name, mode);
 				if (logflag==1) fprintf(logfile, "[Dossier %s] Code retour du mkdir : %d\n", name, etat);
 			}
 			break;
 		default:
-			printf("Elément inconnu par ptar : Typeflag = [%c]\n", head->typeflag[0]);
+			printf("Elément inconnu par ptar : Typeflag = [%c]\n", typeflag);
 			etat=-1;
 			break;
 	}
@@ -556,7 +618,7 @@ int extraction(headerTar *head, char *namex, char *data, FILE *logfile) {
 	free(tv);
 
 	//Code de retour de extraction (évolutif, rajouter éventuellement des cas de return -1)
-	if (etat<0  || file<0 || writ<0 || etatuid<0 || etatgid<0 || sync<0 || utim<0) {
+	if (etat<0  || file<0 || writ<0 || etatuid<0 || etatgid<0 || sync<0 || utim<0 || rm<0) {
 		return -1;
 	}
 	else return 0;
@@ -804,12 +866,17 @@ bool checksum(headerTar *head) {
 	unsigned int chksum;
 	unsigned int chksumtotest;
 	char *pHeader;
+	char schecksum[8];
 
 	chksum=0;
 	chksumtotest=0;
 
+	//Parsing correct de la terminaison par \0
+	strncpy(schecksum, head->checksum, sizeof(head->checksum));
+	strcat(schecksum, "\0");
+
 	//On récupère le champs checksum du header, il est en octal ASCII.
-	chksumtotest = strtol(head->checksum, NULL, 8);
+	chksumtotest = strtol(schecksum, NULL, 8);
 
 	//On cast le header sous la forme d'un pointeur sur char.
 	pHeader = (char *)head;
