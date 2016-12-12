@@ -112,7 +112,7 @@ Page de manuel ptar(1)
 	   groff-utf8 -Tutf8 -mandoc ptar.1 | less
 
 
-Bibliotheque dynamique ; zlib
+Bibliotheque dynamique : zlib
 
   Installer la zlib
 
@@ -127,7 +127,11 @@ Dernière Màj
 
 	11/12/2016    15:05     version 1.7.0.1 : Version stable de ptar multithreadé
 
+
+Liste des corrections
+
   Liste des corrections 1.7.0.0:
+
     - Les fonctions checkpath() et recoverpath() sont optimisées et améliorées, et devraient être
       stables à long terme. La fonction recoverpath() a été largement corrigée et optimisée.
     - Le programme entier a été remanié pour fonctionner sur plusieurs threads (-p). Le main lance
@@ -141,6 +145,7 @@ Dernière Màj
       dans une version supérieur (prévue pour 1.7.2.0).
 
   Liste des corrections 1.7.0.1:
+
     - Les threads sont tous lancés et dans le bon nombre. En effet, une mauvaise utilisation de pthread_create conduisait
       à l'echec de la création mais le traitement se lançait toute de même (dans le thread principal). Aussi, un thread en
       trop était créé à cause d'une incrémentation inutile du nombre de threads.
@@ -150,6 +155,7 @@ Dernière Màj
       il s'agit d'un fichier (typeflag='0') : voir tar(5).
 
   Liste des corrections 1.7.1.0:
+
     - Les champs char du header ont une terminaison forcée par "\0", en effet il arrivait que certains champs fusionnent.
       C'était le cas du typeflag et du linkname dans certains cas (type=2 et link=5 => typeflag=25 apres strtol).
     - Les fichiers/dossiers intermédiaires créés pour les symlink() sont immédiatemment supprimés après création du lien,
@@ -161,6 +167,13 @@ Dernière Màj
       pointés se terminent bien par le caractère '/', autrement on ne peut pas le différencier d'un fichier/symlink pointé.
     - Optimisation des fonctions existeFile() et existeDir() et de leur implémentation dans extraction(). Optimisation
       générale de extraction(). Stabilité accrue pour l'attribution des permissions.
+    - Une archive "vicieuse" a été construite sur la base des tests blancs pour vérifier la stabilité du programme.
+      Il s'agit de inc.tar.
+
+  Liste des corrections 1.7.2.0:
+  
+    - Une archive corrompue a été ajoutée aux archives test pour vérifier la fiabilité du calcul du checksum.
+
 
 
 Debug
