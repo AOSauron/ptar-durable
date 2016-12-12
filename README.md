@@ -80,7 +80,7 @@ Utilisation de ptar
     	./ptar -z ptar.1.gz
 
 
-Page de manuel ptar(1)
+#Page de manuel ptar(1)
 
 	Lire la page de manuel de ptar sans manipulations/droits super-utilisateurs au préalable
 
@@ -123,12 +123,11 @@ Page de manuel ptar(1)
       export LD_LIBRARY_PATH=<path_du_raccourci.so>
 
 
-Dernière Màj
-
-	12/12/2016    02:23     version 1.7.1.0 : Version stable de ptar multithreadé
-
-
 #Liste des corrections
+
+  Dernière Màj
+
+  	12/12/2016    02:23     version 1.7.1.0 : Version stable de ptar multithreadé
 
   Liste des corrections 1.7.0.0:
 
