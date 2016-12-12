@@ -112,7 +112,7 @@ Page de manuel ptar(1)
 	   groff-utf8 -Tutf8 -mandoc ptar.1 | less
 
 
-Bibliotheque dynamique : zlib
+#Bibliotheque dynamique : zlib
 
   Installer la zlib
 
@@ -128,7 +128,7 @@ Dernière Màj
 	12/12/2016    02:23     version 1.7.1.0 : Version stable de ptar multithreadé
 
 
-Liste des corrections
+#Liste des corrections
 
   Liste des corrections 1.7.0.0:
 
@@ -176,7 +176,7 @@ Liste des corrections
 
 
 
-Debug
+#Debug
 
 	Pour observer le code brute d'une fichier et son affichage
 		hexdump -C testfalsearch.tar
