@@ -80,7 +80,7 @@ Utilisation de ptar
     	./ptar -z ptar.1.gz
 
 
-#Page de manuel ptar(1)
+###Page de manuel ptar(1)
 
 	Lire la page de manuel de ptar sans manipulations/droits super-utilisateurs au préalable
 
@@ -112,7 +112,7 @@ Utilisation de ptar
 	   groff-utf8 -Tutf8 -mandoc ptar.1 | less
 
 
-#Bibliotheque dynamique : zlib
+###Bibliotheque dynamique : zlib
 
   Installer la zlib
 
@@ -120,10 +120,10 @@ Utilisation de ptar
 
   Configurer la variable LD_LIBRARY_PATH
 
-      export LD_LIBRARY_PATH=<path_du_raccourci.so>
+      export LD_LIBRARY_PATH=<path_du_raccourci_vers_zlib.so>
 
 
-#Liste des corrections
+###Liste des corrections
 
   Dernière Màj
 
@@ -175,7 +175,7 @@ Utilisation de ptar
 
 
 
-#Debug
+###Debug
 
 	Pour observer le code brute d'une fichier et son affichage
 		hexdump -C testfalsearch.tar
