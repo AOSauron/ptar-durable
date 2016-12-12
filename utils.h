@@ -25,8 +25,6 @@ Correspondantes aux options suivantes :
 
 /* Déclaration des variables globales : flags de ligne de commandes initialisés dans main et nom du tube nommé */
 
-static const char *pipenamed = "tubedecompression.fifo";    //Nom du tube nommé contenant les données décompressées.
-
 int extract;	                                              //Flags pour extraction (option -x)
 int listingd;	                                              //Flags pour listing détaillé (option -l)
 int decomp;	                                                //Flags pour décompression (option -z)
@@ -36,11 +34,13 @@ int nthreads;	                                              //Nombre de threads 
 
 int file;                                                   //Descripteur de fichier de l'open primordial.
 gzFile filez;                                               //Structure de fichier pour le gzOpen primordial si décompression.
-/*
-gzFile (*gzopen)();                                         //Fonction gzOpen chargée par dlopen.
-int (*gzread)();                                            //Fonction gzRead chargée par dlopen.
-int (*gzclose)();                                           //Fonction gzClose chargée par dlopen.
-*/
+
+gzFile (*gzOpen)();                                         //Fonction gzopen chargée par dlopen.
+z_off_t (*gzSeek)();                                        //Fonction gzseek chargée par dlopen.
+int (*gzRead)();                                            //Fonction gzread chargée par dlopen.
+int (*gzRewind)();                                          //Fonction gzrewind chargée par dlopen.
+int (*gzClose)();                                           //Fonction gzclose chargée par dlopen.
+
 void *handle;                                               //Le handle du dlopen.
 
 FILE *logfile; 			                                        //Logfile pour l'option -e.
@@ -120,22 +120,7 @@ Si on veut forcer un nom de fichier, le spécifier dans le champ name, sinon met
 Retourne 0 si tout s'est bien passé, -1 sinon.
 */
 
-int extraction(headerTar *head, char *namex, char *data, FILE *logfile);
-
-
-
-/*
-OBSOLETE DEPUIS LA VERSION 1.7.1
-Décompresse l'archive [.tar].gz (il faut que l'extension .gz soit présente) passée en paramètre avant tout traitement ultérieur.
-Ecrit les données décompressées dans un tube nommé créé dans la fonction. Se fork une fois :
-Le processus père retourne le nom du tube nommé juste après le fork().
-Le processus fils effectue l'écriture des données dans l'entrée du tube nommé, puis est kill (et ne retourne donc rien).
-Retourne EXIT_FAILURE si il y eu au moins 1 erreur dans les opérations.
-Module optionnel : Gère le cas d'une archive .gz seule (et non .tar.gz) avec le flag isonlygz et le nom du fichier récupéré par checkfile.
-Excepté pour le cas d'un fichier compressé au format .gz sans archivage, filenamegz devrait être mis à NULL et isonlygz à false.
-*/
-
-const char *decompress(char *folder, FILE *logfile, bool isonlygz, const char *filenamegz);
+int extraction(headerTar *head, char *namex, char *data);
 
 
 

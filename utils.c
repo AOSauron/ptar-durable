@@ -8,7 +8,7 @@ Correspondantes aux options suivantes :
 -x : Extraction.
 -l : Listing détaillé.
 -z : Décompression gzip avec la bibliothèque zlib.
--p NBTHREADS : (forcément couplée avec -x au moins) Durabilité et parallélisation de l'opération avec un nombre de threads choisi.
+-p NBTHREADS : Durabilité et parallélisation de l'opération avec un nombre de threads choisi.
 -e : Ecriture d'un logfile.txt. Seulement compatible avec l'extraction (-x) et la décompression (-z) pour le moment.
 
 */
@@ -82,27 +82,31 @@ void *traitement(char *folder) {
 	*/
 
 	do {
-
-		/*
-		Récupération du header, détection de fin de fichier et vérification du format archive POSIX ustar du fichier.
-		*/
-
-		//On lock le mutex pour protéger la ressource avant lecture.
+		//On lock le mutex pour protéger la ressource avant lecture. Lit donc un élément et traite dessus : lit aussi les potentielles données suivant le header.
 		pthread_mutex_lock(&MutexRead);
 
 		//On lit (read) un premier bloc (header) de 512 octets qu'on met dans une variable du type de la structure header_posix_ustar définie dans header.h (norme POSIX.1)
-		status=read(file, &head, sizeof(head));  // Utiliser sizeof(head) est plus évolutif qu'une constante égale à 512.
+		if (decomp==0) {
+			//Cas du .tar
+			status=read(file, &head, sizeof(head));  // Utiliser sizeof(head) est plus évolutif qu'une constante égale à 512.
+		}
+		else {
+			//Cas du .tar.gz
+			status=(*gzRead)(filez, &head, sizeof(head));
+		}
 
 		//Cas d'erreur -1 du read
 		if (status<0) {
 			printf("Erreur dans la lecture du header, read() retourne : %d \n", status);
 			if (logflag==1) fclose(logfile);
-			close(file);
+			if (decomp==0) {
+				close(file);
+			}
+			else {
+				(*gzClose)(filez);
+			}
 			exit(EXIT_FAILURE);
 		}
-
-		//On délock le mutex de lecture.
-		pthread_mutex_unlock(&MutexRead);
 
 		//Parsing correct du champ name.
 		strncpy(sname, head.name, sizeof(head.name));
@@ -125,7 +129,12 @@ void *traitement(char *folder) {
 		if (strcmp("ustar", sustar)!=0 && strcmp("ustar  ", sustar)!=0 && strcmp("ustar ", sustar)!=0) {
 			printf("Le fichier %s ne semble pas être une archive POSIX ustar.\n", folder);
 			if (logflag==1) fclose(logfile);
-			close(file);
+			if (decomp==0) {
+				close(file);
+			}
+			else {
+				(*gzClose)(filez);
+			}
 			exit(EXIT_FAILURE);
 		}
 
@@ -161,39 +170,46 @@ void *traitement(char *folder) {
 				size_reelle=512*((int)(size/512)+1);  // En castant avec (int) cela agit comme une partie entière. Ce n'est pas nécessaire mais plus sûr.
 			}
 
-			//On bloque le mutex en lecture.
-			pthread_mutex_lock(&MutexRead);
-
 			//On n'alloue de la mémoire que si on a besoin des données (c'est-à-dire si on souhaite extraire)
-			if (extract==1 || decomp==1) {
+			if (extract==1 || (decomp==1 && extract==1)) {
 				//On utilise le buffer data pour le read() des données pour l'extraction
 				data=malloc(size_reelle);
 
 				//On récupère les données suivant le buffer, elles vont servir pour l'extraction
-				status=read(file, data, size_reelle);
-
-				//Libération de la mémoire si non extraction : on ne peut pas lseek() dans un tube nommé.
-				if (extract==0) {
-					free(data);
+				if (decomp==0) {
+					status=read(file, data, size_reelle);
+				}
+				else {
+					status=(*gzRead)(filez, data, size_reelle);
 				}
 			}
 			//Sinon un simple lseek() suffira (déplace la tête de lecture d'un certain offset). SAUF pour le tube nommé (voir plus haut).
 			else {
 				//Le flag (whence) SEEK_CUR assure que la tête de lecture est déplacée de size_réelle octets relativement à la position courante.
-				status=lseek(file, size_reelle, SEEK_CUR);
+				if (decomp==0) {
+					status=lseek(file, size_reelle, SEEK_CUR);
+				}
+				else {
+					status=(*gzSeek)(filez, size_reelle, SEEK_CUR);
+				}
 			}
 
 			//Cas d'erreur -1 du read
 			if (status<0) {
 				printf("Erreur dans la lecture du header, read() retourne : %d\n", status);
 				if (logflag==1) fclose(logfile);
-				close(file);
+				if (decomp==0) {
+					close(file);
+				}
+				else {
+					(*gzClose)(filez);
+				}
 				exit(EXIT_FAILURE);
 			}
-
-			//On débloque le mutex en lecture.
-			pthread_mutex_unlock(&MutexRead);
 		}
+
+		//On débloque le mutex en lecture.
+		pthread_mutex_unlock(&MutexRead);
 
 		/*
 		Traitement du listing du header (détaillé -l ou non)
@@ -245,7 +261,7 @@ void *traitement(char *folder) {
 			}
 
 			//Extraction de l'élément.
-			extreturn=extraction(&head, NULL, data, logfile);
+			extreturn=extraction(&head, NULL, data);
 
 			if (logflag==1) fprintf(logfile, "Retour d'extraction de %s : %d\n", sname, extreturn);
 
@@ -259,13 +275,12 @@ void *traitement(char *folder) {
 	Fin des traitements
 	*/
 
-	//Fermeture de l'archive/tube nommé suivant le cas.
-	close(file);
-
-	//Suppression du tube nommé si il a été créé.
-	if (decomp==1) {
-		status=remove(pipenamed);
-		if (logflag==1) fprintf(logfile, "[Fichier %s] Code retour du remove : %d\n", folder, status);
+	//Fermeture de l'archive.
+	if (decomp==0) {
+		close(file);
+	}
+	else {
+		(*gzClose)(filez);
 	}
 
 	//Affectation du bon mtime pour les dossiers après traitement (nécessaire d'être en toute fin) de l'extraction.
@@ -403,7 +418,7 @@ int listing(headerTar head) {
 Traite l'extraction des éléments (regular files, directory, symbolic links)
 */
 
-int extraction(headerTar *head, char *namex, char *data, FILE *logfile) {
+int extraction(headerTar *head, char *namex, char *data) {
 
 	struct timeval *tv;
 	char *name;
@@ -627,230 +642,6 @@ int extraction(headerTar *head, char *namex, char *data, FILE *logfile) {
 
 
 /*
-OBSOLETE DEPUIS 1.7.1
-Traite la décompression de l'archive .tar.gz avec zlib (éventuellement d'une archive .gz pure aussi)
-*/
-
-const char *decompress(char *folder, FILE *logfile, bool isonlygz, const char *filenamegz) {
-
-	char *error;
-	char *erroropen;
-	char *errorread;
-	char *errorclose;
-	char *erroreof;
-	char *errorrewind;
-	char *data;
-	gzFile file;
-
-	int (*gzrewind)();
-	int (*gzeof)();
-	gzFile (*gzopen)();                                         //Fonction gzOpen chargée par dlopen.
-	int (*gzread)();                                            //Fonction gzRead chargée par dlopen.
-	int (*gzclose)();
-	int status;
-	int stat;
-	int etat;
-	int sync;
-	int pipstat;
-	int entreetube; 			//Entrée du tube nommé. (retourné par la fonction)
-	pid_t pid;        		//pid pour le fork, permet à la fonction de terminer pour ouvrir le tube de l'autre côté.
-	pid_t fpid;       		//pid du processus fils, on va lui envoyer un signal pour lui dire que ce processus (le père) a terminé.
-
-	sync=0;
-
-	if (logflag==1) fprintf(logfile, "Debut de la decompression de l'archive %s\n", folder);
-
-	//Chargement de la bibliothèque zlib avec dlopen. dlopen va chercher libz.so dans le système.
-	handle=dlopen("libz.so", RTLD_NOW);
-
-	//Deuxième tentative en chargant la lib fourni par le git.
-	if (!handle) {
-		handle=dlopen("zlib/libz.so", RTLD_NOW);
-	}
-
-	//Solution bricolée pour le test blanc: On suppose que si ça ne marche pas, c'est qu'on essaie de charger depuis un sous dossier.
-	if (!handle) {
-		handle=dlopen("../zlib/libz.so", RTLD_NOW);
-	}
-
-	//Ultime tentative de charger zlib depuis un dossier où elle est couramment installée.
-	if (!handle) {
-		handle=dlopen("/usr/lib/libz.so", RTLD_NOW);
-	}
-
-	//Gestion du cas ou la bibliothèque ne charge pas.
-	if (!handle) {
-		error=dlerror();
-		printf("Erreur dans le chargement de zlib : dlerror() = %s\n", error);
-		if (logflag==1) {
-			fprintf(logfile, "[Archive %s] Code retour du open : %s\n", folder, error);
-			fclose(logfile);
-		}
-		exit(EXIT_FAILURE);
-	}
-
-	//On récupère les fonctions utiles à la décompression avec dlsym
-	gzopen=dlsym(handle, "gzopen");
-	erroropen=dlerror();
-	if (logflag==1) fprintf(logfile, "[Archive %s] Code retour du dlsym(gzopen) : %s\n", folder, erroropen);
-	gzrewind=dlsym(handle, "gzrewind");
-	errorrewind=dlerror();
-	if (logflag==1) fprintf(logfile, "[Archive %s] Code retour du dlsym(gzrewind) : %s\n", folder, errorrewind);
-	gzeof=dlsym(handle, "gzeof");
-	erroreof=dlerror();
-	if (logflag==1) fprintf(logfile, "[Archive %s] Code retour du dlsym(gzeof) : %s\n", folder, erroreof);
-	gzread=dlsym(handle, "gzread");
-	errorread=dlerror();
-	if (logflag==1) fprintf(logfile, "[Archive %s] Code retour du dlsym(gzread) : %s\n", folder, errorread);
-	gzclose=dlsym(handle, "gzclose");
-	errorclose=dlerror();
-	if (logflag==1) fprintf(logfile, "[Archive %s] Code retour du dlsym(gzclose) : %s\n", folder, errorclose);
-
-	//Cas d'erreur des dlsym
-	if (erroropen!=NULL || errorread!=NULL || errorclose!=NULL || errorrewind!=NULL || erroreof!=NULL) {
-		printf("Erreur detectee par dlerror() : %s %s %s\n", erroropen, errorread, errorclose);
-		dlclose(handle);
-		if (logflag==1) fclose(logfile);
-		exit(EXIT_FAILURE);
-	}
-
-	/* FIN du chargement, on fait un return dans notre nouvelle straégie. */
-
-
-
-	/* ********************   A DESACTIVER   ***************************** */
-	/* ECRITURE dans un tube nommé, en vu de traitement dans traitement() */
-
-	//Le nom du tube nommé est passé en variable globale.
-
-	//Suppression d'un éventuel tube nommé du même nom déjà existant (qui ferait échouer le programme)
-	remove(pipenamed);
-
-	//Création effective du tube nommé
-	pipstat = mkfifo(pipenamed, S_IRWXU | S_IRGRP | S_IWGRP);
-	if (logflag==1) fprintf(logfile, "[Archive %s] Code retour du mkfifo : %d\n", folder, pipstat);
-
-	//Cas d'erreur lors de la création du tube.
-	if (pipstat==-1) {
-		printf("Erreur dans la création du tube nommé (pour la décompression).\n");
-		dlclose(handle);
-		if (logflag==1) fclose(logfile);
-		exit(EXIT_FAILURE);
-	}
-
-	//fork du processus, le père va servir à lancer l'ouverture de la sortie du tube dans le programme appelant.
-	pid=fork();
-
-	//Si on est dans le père, on termine ce processus afin que traitement() puisse continuer et ouvrir le tube de l'autre côté.
-	if (pid!=0) {
-		if (logflag==1) fprintf(logfile, "[Archive %s] Return du processus père ... pid : %d\n", folder, pid);
-
-		//Déchargement de la bibliothèque dynamique.
-		dlclose(handle);
-
-		//Retour du nom du tube nommé permettant de l'ouvrir dans le père (post retour)
-		return pipenamed;
-	}
-
-	//Sinon si on est dans le fils on continue : on écrit les données dans le tube puis le fils est kill.
-	else {
-
-		//Open de l'archive avec la bibliothèque zlib
-		file=(*gzopen)(folder,"rb");
-
-		//On rembobine la tête de lecture au cas où
-		(*gzrewind)(file);
-
-		//Cas où l'open échoue.
-		if (file==NULL) {
-			printf("Erreur dans l'ouverture du gzfile\n");
-			if (logflag==1) {
-				fprintf(logfile, "[Archive %s] Echec de l'ouverture avec gzopen : code retour = NULL\n", folder);
-				fclose(logfile);
-			}
-			exit(EXIT_FAILURE);
-		}
-
-		/* OPTIONNEL et NON NECESSAIRE. Semi-fonctionnel, developpement inutile pour le projet. */
-		//Cas de l'archive .gz (et pas .tar.gz) : écriture directe.
-		if (isonlygz==true) {
-			status=open(filenamegz, O_CREAT | O_WRONLY, S_IRWXU); //Il faudrait récupérer les permissions du fichier.
-			if (logflag==1) fprintf(logfile, "[Archive %s] Code retour du open : %d\n", folder, status);
-			data=malloc(1);
-			while (!gzeof(file)) {
-				stat=(*gzread)(file, data, 1);
-				etat=write(status, data, 1);
-				//Un fsync tous les 512 octets est très gourmand en temps, son utilisation ici est discutable !
-				if (thrd==1) {
-					sync=fsync(status);
-					if (logflag==1) fprintf(logfile, "[Archive %s] Code retour du fsync : %d\n", folder, sync);
-				}
-			}
-			if (logflag==1) fprintf(logfile, "[Archive %s] Code retour du gzread : %d\n", folder, stat);
-			if (logflag==1) fprintf(logfile, "[Archive %s] Code retour du write : %d\n", folder, etat);
-			etat=close(status);
-			if (logflag==1) {
-				fprintf(logfile, "[Archive %s] Code retour du close : %d\n", folder, etat);
-				fclose(logfile);
-			}
-			free(data);
-			printf("%s\n", filenamegz);
-			//Etant donné que ce n'est pas censé être une utilisation normale de ptar, on termine le processus.
-			exit(EXIT_FAILURE);
-		}
-		/* FIN DU MODULE OPTIONNEL */
-
-		//Ouverture de l'entrée du tube nommé.
-		entreetube=open(pipenamed, O_WRONLY);
-		if (logflag==1) fprintf(logfile, "[Archive %s] Code retour du open du tube : %d\n", folder, entreetube);
-
-		//Cas d'erreur lors de l'ouverture de l'entrée du tube.
-		if (entreetube==-1) {
-			printf("Erreur dans l'ouverture (de l'entrée) du tube nommé (pour la décompression).\n");
-			if (logflag==1) fclose(logfile);
-			exit(EXIT_FAILURE);
-		}
-
-		//Comme dans une archive tar tout est "rangé" dans des blocs de 512 octets, on lit donc par 512 octets.
-		data=malloc(512);
-		while (!gzeof(file)) {
-			stat=(*gzread)(file, data, sizeof(data));
-			status=write(entreetube, data, sizeof(data));
-			//On force les buffer à se vider (donc on attend),c'est relativement gourmand en temps de le placer après chaque écriture de 512 octets.
-			if (thrd==1) {
-				sync=fsync(entreetube);
-				if (logflag==1) fprintf(logfile, "[Archive %s] Code retour du fsync : %d\n", folder, sync);
-			}
-		}
-		/* 		ON POURRAIT DEPLACER LE FSYNC() ICI POUR UNE MEILLEURE RAPIDITE    */
-		free(data);
-		if (logflag==1) fprintf(logfile, "[Archive %s] Code retour du dernier gzread : %d\n", folder, stat);
-		if (logflag==1) fprintf(logfile, "[Archive %s] Code retour du dernier write : %d\n", folder, status);
-
-		//Close du .tar.gz
-		etat=(*gzclose)(file);
-		if (logflag==1) {
-			fprintf(logfile, "[Archive %s] Code retour du gzclose : %d\n", folder, etat);
-			if (logflag==1) fclose(logfile);
-		}
-
-		//Déchargement de la bibliothèque dynamique.
-		dlclose(handle);
-
-		//Kill du processus fils
-		fpid = getpid();
-		kill(fpid, SIGQUIT);
-
-		//Exit si erreur (normalement jamais atteint à cause du kill précédent);
-		printf("Une erreur est survenu lors du kill du processus fils...");
-		if (logflag==1) fclose(logfile);
-		exit(EXIT_FAILURE);
-	}
-}
-
-
-
-/*
 Sert à vérifier la non-corruption d'une archive tar après son téléchargement.
 Vérifie la somme de contrôle stockée dans le header passé en paramère.
 Pour cela, recalcule le checksum du header et le compare au champs checksum sur header.
@@ -914,5 +705,62 @@ Charge la librairie dynamique zlib et les fonctions utilisées pour la décompre
 
 void loadzlib() {
 
+	char *error;
+	char *erroropen;
+	char *errorread;
+	char *errorclose;
+	char *errorseek;
+	char *errorrewind;
+
+	if (logflag==1) fprintf(logfile, "Debut de la decompression de l'archive ...\n");
+
+	//Chargement de la bibliothèque zlib avec dlopen. dlopen va chercher libz.so dans le système.
+	handle=dlopen("libz.so", RTLD_NOW);
+
+	//Deuxième tentative en chargant la lib fourni par le git.
+	if (!handle) {
+		handle=dlopen("zlib/libz.so", RTLD_NOW);
+	}
+
+	//Ultime tentative de charger zlib depuis un dossier où elle est couramment installée.
+	if (!handle) {
+		handle=dlopen("/usr/lib/libz.so", RTLD_NOW);
+	}
+
+	//Gestion du cas où la bibliothèque ne charge pas.
+	if (!handle) {
+		error=dlerror();
+		printf("Erreur dans le chargement de zlib : dlerror() = %s\n", error);
+		if (logflag==1) {
+			fprintf(logfile, "[Chargement dynamique de zlib] Code retour du dlopen : %s\n", error);
+			fclose(logfile);
+		}
+		exit(EXIT_FAILURE);
+	}
+
+	//On récupère les fonctions utiles à la décompression avec dlsym
+	gzOpen=dlsym(handle, "gzopen");
+	erroropen=dlerror();
+	if (logflag==1) fprintf(logfile, "Code retour du dlsym(gzopen) : %s\n", erroropen);
+	gzRewind=dlsym(handle, "gzrewind");
+	errorrewind=dlerror();
+	if (logflag==1) fprintf(logfile, "Code retour du dlsym(gzrewind) : %s\n", errorrewind);
+	gzSeek=dlsym(handle, "gzseek");
+	errorseek=dlerror();
+	if (logflag==1) fprintf(logfile, "Code retour du dlsym(gzeof) : %s\n", errorseek);
+	gzRead=dlsym(handle, "gzread");
+	errorread=dlerror();
+	if (logflag==1) fprintf(logfile, "Code retour du dlsym(gzread) : %s\n", errorread);
+	gzClose=dlsym(handle, "gzclose");
+	errorclose=dlerror();
+	if (logflag==1) fprintf(logfile, "Code retour du dlsym(gzclose) : %s\n", errorclose);
+
+	//Cas d'erreur des dlsym
+	if (erroropen!=NULL || errorread!=NULL || errorclose!=NULL || errorrewind!=NULL || errorseek!=NULL) {
+		printf("Erreur detectee par dlerror() : open:%s read:%s close:%s rewind:%s seek:%s\n", erroropen, errorread, errorclose, errorrewind, errorseek);
+		dlclose(handle);
+		if (logflag==1) fclose(logfile);
+		exit(EXIT_FAILURE);
+	}
 
 }

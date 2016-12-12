@@ -7,6 +7,8 @@
 #include <fcntl.h>
 #include <sys/wait.h>
 #include <pthread.h>
+#include <zlib.h>
+#include <dlfcn.h>
 
 #include "utils.h"
 #include "checkfile.h"
@@ -21,12 +23,12 @@ int main(int argc, char *argv[]) {
 	int k;							//Indice de la boucle for de destruction de threads éventuelle.
 	int status;					//Retour des pthread_create
 	int opt;						//Valeur de retour de getopt().
-	int waitstatus;			//Status pour le waitpid.
 	pthread_t *tabthrd;	//Tableau des idf des threads;
 	void *ret;					//Structure pour le join final des threads.
 
 	//Initialisation des flags des options de ligne de commande. Ce sont des variables globales dans utils.h
 	thrd=0;
+	nthreads=0;
 	extract=0;
 	listingd=0;
 	decomp=0;
@@ -85,7 +87,7 @@ int main(int argc, char *argv[]) {
 	Tester l'argument (existence et nom bien formé).
 	*/
 
-	if (checkfile(argv[optind], logfile)==false) {
+	if (checkfile(argv[optind])==false) {
 		//Les messages d'erreurs sont gérés dans checkfile.c.
 		//Si l'archive est seulement compressée, tente une décompression directe: ptar n'est pas prévu pour cela, ce module est donc en bêta (développement inutil)
 		return 1;
@@ -106,14 +108,21 @@ int main(int argc, char *argv[]) {
 	//On ouvre l'archive tar avec open() et le flag O_RDONLY (read-only). Si option -z, on décompresse, récupère les données dans un tube et on ouvre ce tube nommé.
 	if (decomp==1) {
 
-		//Décompression et ouverture dans un tube nommé tubedecompression.fifo
-		decompress(argv[optind], logfile, false, NULL);
+		//On charge dynamiquement la zlib par une mini fonction utilisant dlopen.
+		loadzlib();
 
-		//Ouverture de la sortie du tube nommé.
-		file=open(pipenamed, O_RDONLY);
+		//On ouvre le fichier tar.gz avec la zlib.
+		filez=(*gzOpen)(argv[optind], "rb");
 
-		//On attend le processus fils qui écrit dans le tube nommé.
-		waitpid(-1, &waitstatus, 0);
+		//Cas d'erreur du gzopen.
+		if (filez==NULL) {
+			printf("Erreur d'ouverture du fichier, gzopen() retourne : %p. Le fichier n'existe pas ou alors est corrompu.\n", filez);
+		}
+
+		//On rembobine la tête de lecture au cas où
+		(*gzRewind)(file);
+
+
 	}
 	//Cas où pas compressée.
 	else {
@@ -121,18 +130,16 @@ int main(int argc, char *argv[]) {
 		//Cas d'erreur -1 du open().
 		if (file<0) {
 			printf("Erreur d'ouverture du fichier, open() retourne : %d. Le fichier n'existe pas ou alors est corrompu.\n", file);
-			close(file);
 			if (logflag==1) fclose(logfile); //Aussi le logfile.
 			return 1;
 		}
-
 	}
 
 	/*
 	Création des threads et Lancement de la procédure.
 	*/
 
-	if (decomp==1) {
+	if (thrd==1) {
 		//Tableau des pthread_t
 		tabthrd=malloc(nthreads*sizeof(pthread_t));
 
@@ -152,15 +159,19 @@ int main(int argc, char *argv[]) {
 
 		//Join des threads
 		for (j=0; j<nthreads; j++) {
-			(void)pthread_join(tabthrd[j], &ret);
+			pthread_join(tabthrd[j], &ret);
 		}
 
 		//Libération du pointeur sur les threads.
 		free(tabthrd);
+
+		//Fermeture de zlib dynaique.
+		dlclose(handle);
 	}
 	//Si on ne veut pas utiliser de threads, on appelle tous simplement la procédure.
 	else {
 		traitement(argv[optind]);
 	}
+
 	return 0;
 }

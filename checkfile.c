@@ -22,41 +22,35 @@ lors du premier open() dans la boucle principale du main.
 
 #include "utils.h"
 
-bool checkfile(char *file, FILE *logfile) {
+bool checkfile(char *filename) {
 
-	bool isonlygz;
 	int cpt_token;
 	const char *delim;
 	char *token;
 	char *token_courant;
 	char *token_suivant;
-	char filenamegz[255];
 	char directory_test[255];
 
 	cpt_token=0; //Compteur de token, ici compteur de mots séparés par des "." dans le nom
 	delim=".";
 	token_courant="";
 	token_suivant="";
-	isonlygz=false;
 
 	//Faire taire ces warning unused
 	MutexRead=(pthread_mutex_t) MutexRead;
 	MutexWrite=(pthread_mutex_t) MutexWrite;
 
 	//Test de l'existence d'un argument.
-	if (file==NULL) {
+	if (filename==NULL) {
 		printf("ptar : erreur pas d'archive tar en argument. Utilisation: ./ptar [-xlzp NBTHREADS] emplacement_archive.tar[.gz]\n");
 		return false;
 	}
 
 	//On récupère l'argument (dans une variable temporaire car strtok agit dessus) et on test si c'est bien une archive .tar ou .tar.gz
-	strcpy(directory_test, file);   // strcpy(char dest, char src);
+	strcpy(directory_test, filename);   // strcpy(char dest, char src);
 
 	//Récupère le premier token (voir strtok(3))
 	token=strtok(directory_test, delim);
-
-	//Initialisation du filenamegz pour le cas du fichier non archivé mais compressé.
-	strcpy(filenamegz, "");
 
  	//Récupère les autres token et ne conserve que les 2 derniers à chaque fois. On récupère le nom sans l'extension .gz également.
  	do {
@@ -64,8 +58,6 @@ bool checkfile(char *file, FILE *logfile) {
 		token_courant=token_suivant;
 		token_suivant=token;
 	  token=strtok(NULL, delim);
-		strcat(filenamegz, token_courant);
-		if (strcmp(token_courant,"")!=0 && strcmp(token_suivant,"gz")!=0) strcat(filenamegz, delim);
  	} while (token != NULL);
 
 	//Détection de l'extension
@@ -77,19 +69,15 @@ bool checkfile(char *file, FILE *logfile) {
 				return false;
 			}
 			else {
-				if (logflag==1) fprintf(logfile, "Nom du tube nommé utilisé pour la décompression : %s\n", pipenamed);
 				return true;
 			}
 		}
 		else if (extract==0 && listingd==0 && decomp==1) { //Cas spécial .gz pur.
-			isonlygz=true;
-			printf("Le nom du fichier %s ne semble pas être une archive .tar ou .tar.gz. Tentative de décompression...\n", file);
-			//Appel au module optionnel de dézippage. Activé par défaut.
-			decompress(file, logfile, isonlygz, filenamegz);
+			printf("Le nom du fichier %s semble être un .gz pur, ptar n'est pas prévu pour un tel cas !\n", filename);
 			return false;
 		}
 		else {
-			printf("Le nom du fichier %s n'est pas au bon format. ([.tar].gz) ou n'utilisez que -z pour un fichier .gz pur.\n", file);
+			printf("Le nom du fichier %s n'est pas au bon format. ([.tar].gz) ou n'utilisez que -z pour un fichier .gz pur.\n", filename);
 			return false;
 		}
 	}
@@ -103,13 +91,13 @@ bool checkfile(char *file, FILE *logfile) {
 			else return true;
 		}
 		else {
-			printf("Le nom du fichier %s n'est pas au bon format. (.tar[.gz])\n", file);
+			printf("Le nom du fichier %s n'est pas au bon format. (.tar[.gz])\n", filename);
 			return false;
 		}
 	}
 	//Autres cas éventuels:
 	else {
-		printf("Le nom du fichier %s n'est pas au bon format. (.tar[.gz])\n", file);
+		printf("Le nom du fichier %s n'est pas au bon format. (.tar[.gz])\n", filename);
 		return false;
 	}
 }
@@ -252,7 +240,6 @@ int checkpath(char *path, FILE *logfile) {
 		}
 		if (existeDir(pathtotest)==false) {
 			//On crée le dossier avec, pour l'instant, tous les droits (on ne sait jamais) sauf écriture pour other.
-			printf("%s\n", pathtotest);
 			etat=mkdir(pathtotest, S_IRWXU | S_IRWXG | S_IROTH | S_IXOTH);
 			if (logflag==1) fprintf(logfile, "[Dossier %s] Code retour du errno du mkdir de checkpath (ou opendir si No such file or dir): %s\n", pathtotest, strerror(errno));
 			if (etat<0) etatfinal=-1;

@@ -34,7 +34,7 @@ Permet de vérifier l'extension du fichier passé en paramètre et de la cohére
 Appelle directement decompress() lors d'un .gz pur et fait terminer le programme. (module instable)
 */
 
-bool checkfile(char *file, FILE *logfile);
+bool checkfile(char *file);
 
 
 /*
@@ -47,7 +47,7 @@ bool existeDir(char *folder);
 
 /*
 Cette fonction vérifie l'existence du fichier passé en paramètre. Sert à l'extraction() et à checkpath.
-Retourne true si il existe, false sinon.  
+Retourne true si il existe, false sinon.
 */
 
 bool existeFile(char *file);

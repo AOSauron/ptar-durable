@@ -172,12 +172,20 @@ Utilisation de ptar
   Liste des corrections 1.7.2.0:
 
       - Une archive corrompue a été ajoutée aux archives test pour vérifier la fiabilité du calcul du checksum.
+      - La décompression n'est désormais plus indépendante de l'extraction : tout se fait en même temps.
+        Une petite fonction loadzlib() s'occupe de précharger dynamiquement avec dlopen les fonctions nécessaires
+        au traitementdes archives compressées. La taille d'un tar.gz n'est donc plus limité à 64Ko (mais par le système
+        lui-même).
+      - Grâce, entres autres, au point précédent, le programme a été largement optimisé en mémoire, les malloc sont
+        désormais moins nombreux. Le programme se rapproche alors des exigences du logiciel embarqué.
 
 
 
 ###Debug
 
 	Pour observer le code brute d'une fichier et son affichage
+
+
 		hexdump -C testfalsearch.tar
 		hexdump -C testf.tar
 		hexdump -C testall.tar
@@ -197,9 +205,9 @@ Utilisation de ptar
       -g
 
   Le fichier logfile.txt généré lors de l'extraction si l'option -e est spécifiée contient les codes de retours des fonctions utilisées pendant l'extraction.
-  Générer un logfile lors de l'extraction d'une archive
+  Générer un logfile lors de l'extraction/décompression d'une archive
 
-      ./ptar -xe archive_test/testall.tar
+      ./ptar -xzep 3 archive_test/testall.tar
 
   Pour compter les threads utilisés dans le programme, lancer cette commande dans un terminal parallèle
 
