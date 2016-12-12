@@ -125,54 +125,54 @@ Bibliotheque dynamique : zlib
 
 Dernière Màj
 
-	11/12/2016    15:05     version 1.7.0.1 : Version stable de ptar multithreadé
+	12/12/2016    02:23     version 1.7.1.0 : Version stable de ptar multithreadé
 
 
 Liste des corrections
 
   Liste des corrections 1.7.0.0:
 
-    - Les fonctions checkpath() et recoverpath() sont optimisées et améliorées, et devraient être
-      stables à long terme. La fonction recoverpath() a été largement corrigée et optimisée.
-    - Le programme entier a été remanié pour fonctionner sur plusieurs threads (-p). Le main lance
-      un certain nombre de threads (passé en paramètre avec la fonction -p), qui vont lancer la procédure
-      traitement() modifiée pour l'occasion. Deux mutex ont été utilisés pour protéger en lecture l'archive source
-      et en écriture les éléments extraits.
-    - La décompression se fait donc avant la création des threads et les données sont stockées dans un pipe
-      nommé, cependant, la taille maximale d'un pipe est de 64Ko, et sachant qu'il est nécessaire de tout écrire
-      dans le pipe avant de lire dedans (ici), on ne peut pas décompresser des tar.gz de taille supérieur à 64Ko, sinon
-      le write en entrée du pipe est bloquant ! Il faudra voir une version améliorée du programme (threads+décompression)
-      dans une version supérieur (prévue pour 1.7.2.0).
+      - Les fonctions checkpath() et recoverpath() sont optimisées et améliorées, et devraient être
+        stables à long terme. La fonction recoverpath() a été largement corrigée et optimisée.
+      - Le programme entier a été remanié pour fonctionner sur plusieurs threads (-p). Le main lance
+        un certain nombre de threads (passé en paramètre avec la fonction -p), qui vont lancer la procédure
+        traitement() modifiée pour l'occasion. Deux mutex ont été utilisés pour protéger en lecture l'archive source
+        et en écriture les éléments extraits.
+      - La décompression se fait donc avant la création des threads et les données sont stockées dans un pipe
+        nommé, cependant, la taille maximale d'un pipe est de 64Ko, et sachant qu'il est nécessaire de tout écrire
+        dans le pipe avant de lire dedans (ici), on ne peut pas décompresser des tar.gz de taille supérieur à 64Ko, sinon
+        le write en entrée du pipe est bloquant ! Il faudra voir une version améliorée du programme (threads+décompression)
+        dans une version supérieur (prévue pour 1.7.2.0).
 
   Liste des corrections 1.7.0.1:
 
-    - Les threads sont tous lancés et dans le bon nombre. En effet, une mauvaise utilisation de pthread_create conduisait
-      à l'echec de la création mais le traitement se lançait toute de même (dans le thread principal). Aussi, un thread en
-      trop était créé à cause d'une incrémentation inutile du nombre de threads.
-    - Si l'option -p n'est pas spécifiée, ne crée aucun thread et appelle traitement() normalement. En effet, ptar
-      ne créait aucun thread, mais n'appelait pas non plus traitement dans ce cas, et terminait normalement sans rien faire.
-    - Optimisation de la compatibilité : on considère maintenant que si le champ typeflag contient un NUL (byte nul),
-      il s'agit d'un fichier (typeflag='0') : voir tar(5).
+      - Les threads sont tous lancés et dans le bon nombre. En effet, une mauvaise utilisation de pthread_create conduisait
+        à l'echec de la création mais le traitement se lançait toute de même (dans le thread principal). Aussi, un thread en
+        trop était créé à cause d'une incrémentation inutile du nombre de threads.
+      - Si l'option -p n'est pas spécifiée, ne crée aucun thread et appelle traitement() normalement. En effet, ptar
+        ne créait aucun thread, mais n'appelait pas non plus traitement dans ce cas, et terminait normalement sans rien faire.
+      - Optimisation de la compatibilité : on considère maintenant que si le champ typeflag contient un NUL (byte nul),
+        il s'agit d'un fichier (typeflag='0') : voir tar(5).
 
   Liste des corrections 1.7.1.0:
 
-    - Les champs char du header ont une terminaison forcée par "\0", en effet il arrivait que certains champs fusionnent.
-      C'était le cas du typeflag et du linkname dans certains cas (type=2 et link=5 => typeflag=25 apres strtol).
-    - Les fichiers/dossiers intermédiaires créés pour les symlink() sont immédiatemment supprimés après création du lien,
-      seulement si le fichier n'existait pas au préalable. Cela permet de créer des liens dans le cas éventuel où leur fichier
-      pointé dans l'archive n'existe pas ou a été supprimé de l'archive (cf tests blancs : include/curses.h).
-    - Le checkfile et l'open (et son cas d'erreur) sont désormais bien placés dans le main et non dans traitement()
-      qui est utilisé par les threads (redondance des appels aux fonctions précédents donc).
-    - Les symlink vers des dossiers fonctionnent désormais correctement, à condition que les linkname des dossiers
-      pointés se terminent bien par le caractère '/', autrement on ne peut pas le différencier d'un fichier/symlink pointé.
-    - Optimisation des fonctions existeFile() et existeDir() et de leur implémentation dans extraction(). Optimisation
-      générale de extraction(). Stabilité accrue pour l'attribution des permissions.
-    - Une archive "vicieuse" a été construite sur la base des tests blancs pour vérifier la stabilité du programme.
-      Il s'agit de inc.tar.
+      - Les champs char du header ont une terminaison forcée par "\0", en effet il arrivait que certains champs fusionnent.
+        C'était le cas du typeflag et du linkname dans certains cas (type=2 et link=5 => typeflag=25 apres strtol).
+      - Les fichiers/dossiers intermédiaires créés pour les symlink() sont immédiatemment supprimés après création du lien,
+        seulement si le fichier n'existait pas au préalable. Cela permet de créer des liens dans le cas éventuel où leur fichier
+        pointé dans l'archive n'existe pas ou a été supprimé de l'archive (cf tests blancs : include/curses.h).
+      - Le checkfile et l'open (et son cas d'erreur) sont désormais bien placés dans le main et non dans traitement()
+        qui est utilisé par les threads (redondance des appels aux fonctions précédents donc).
+      - Les symlink vers des dossiers fonctionnent désormais correctement, à condition que les linkname des dossiers
+        pointés se terminent bien par le caractère '/', autrement on ne peut pas le différencier d'un fichier/symlink pointé.
+      - Optimisation des fonctions existeFile() et existeDir() et de leur implémentation dans extraction(). Optimisation
+        générale de extraction(). Stabilité accrue pour l'attribution des permissions.
+      - Une archive "vicieuse" a été construite sur la base des tests blancs pour vérifier la stabilité du programme.
+        Il s'agit de inc.tar.
 
   Liste des corrections 1.7.2.0:
-  
-    - Une archive corrompue a été ajoutée aux archives test pour vérifier la fiabilité du calcul du checksum.
+
+      - Une archive corrompue a été ajoutée aux archives test pour vérifier la fiabilité du calcul du checksum.
 
 
 
@@ -184,24 +184,30 @@ Debug
 		hexdump -C testall.tar
 
   Pour observer le contenu d'un .o (table des symboles)
-    nm main.o
-    nm utils.o
-    nm checkfile.o
+
+      nm main.o
+      nm utils.o
+      nm checkfile.o
 
   Pour voir les includes à la compilation, ajouter aux CFLAGS du Makefile
-    -I<path>
+
+      -I<path>
 
   Pour déboguer avec GDB, il est préférable d'ajouter aux CFLAGS du Makefile (génère une table des symboles pour débug)
-    -g
+
+      -g
 
   Le fichier logfile.txt généré lors de l'extraction si l'option -e est spécifiée contient les codes de retours des fonctions utilisées pendant l'extraction.
   Générer un logfile lors de l'extraction d'une archive
-    ./ptar -xe archive_test/testall.tar
+
+      ./ptar -xe archive_test/testall.tar
 
   Pour compter les threads utilisés dans le programme, lancer cette commande dans un terminal parallèle
-    ps -T -C ptar
+
+      ps -T -C ptar
 
   Pour bien charger la bibliotheque dynamique, il faut parfois bien set la variable d'environnement LD_LIBRARY_PATH
-    export LD_LIBRARY_PATH=path_du_raccourci.so
+
+      export LD_LIBRARY_PATH=path_du_raccourci.so
 
   ptar vérifie la somme de contrôle (checksum) des fichiers de l'archive, si l'un des éléments est corrompu, ptar termine et renvoie une erreur.
