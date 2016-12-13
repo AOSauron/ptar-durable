@@ -1,5 +1,5 @@
 //////////////////////////////////////////////////////////   ptar - Extracteur d'archives durable et parallèle  ///////////////////////////////////////////////////////////////////
-///////////////////////////////////////////////////////////////////////   v 1.7.2.0        13/12/2016   ///////////////////////////////////////////////////////////////////////////////////
+///////////////////////////////////////////////////////////////////////   v 1.7.3.0        13/12/2016   ///////////////////////////////////////////////////////////////////////////////////
 
 #include <stdio.h>
 #include <stdlib.h>
@@ -123,12 +123,12 @@ int main(int argc, char *argv[]) {
 
 		//On rembobine la tête de lecture au cas où
 		(*gzRewind)(file);
-
-
 	}
+
 	//Cas où pas compressée.
 	else {
 		file=open(argv[optind], O_RDONLY);
+
 		//Cas d'erreur -1 du open().
 		if (file<0) {
 			printf("Erreur d'ouverture du fichier, open() retourne : %d. Le fichier n'existe pas ou alors est corrompu.\n", file);
@@ -163,6 +163,7 @@ int main(int argc, char *argv[]) {
 		for (j=0; j<nthreads; j++) {
 			(void)pthread_join(tabthrd[j], &ret);
 		}
+
 		//Fermeture de l'archive.
 		if (decomp==0) {
 			close(file);

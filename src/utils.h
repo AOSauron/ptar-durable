@@ -1,4 +1,4 @@
-///////// Pour ptar 1.3 minimum /////////
+///////////////// PTAR 1.7 ////////////////////
 /*
 
 Fonctions utils
@@ -10,6 +10,10 @@ Correspondantes aux options suivantes :
 -z : Décompression gzip avec la bibliothèque zlib.
 -p NBTHREADS : Durabilité et parallélisation de l'opération avec un nombre de threads choisi.
 -e : Ecriture dans un logfile.txt. Utile pour -z et -x.
+
+Vérifie le checksum de chaque header, renvoie 1 si l'archive est corrompue.
+
+Charge la zlib à l'aide de dlopen (voir loadzlib()) si l'option -p est spécifiée.
 
 */
 
@@ -82,11 +86,12 @@ typedef struct header_posix_ustar headerTar;
 
 
 /*
-Fonction appelée par les threads !
+Fonction appelée par les threads.
 Fonction principale : recueille les header de chaque fichier dans l'archive (compressée ou non) ainsi que les données suivantes chaque header si il y en a.
 Appelle ensuite les diverses fonctions utiles au traitement souhaité.
-Prend en argument l'emplacement de l'archive, et les 5 flags d'options (ainsi que le nombre de threads)
-Retourne 0 (EXIT_SUCCES) si tout s'est bien passé, 1 (EXIT_FAILURE) sinon.
+Prend en argument l'emplacement de l'archive.
+Retourne 0 (EXIT_SUCCES) si tout s'est bien passé, 1 (EXIT_FAILURE) sinon : dans le cas normal.
+Retourne pthread_exit(int*) dans tous les cas sauf si corruption/erreur de read, qui renvoie EXIT_FAILURE : dans le cas multithreadé.
 */
 
 void *traitement(char *folder);
@@ -98,7 +103,7 @@ Fonction génératrice de logfile. Est appelée si et seulement si l'option -e e
 logname : Nom du logfile (normalement : logfile.txt)
 option : Options du fopen (normalement "a" pour faire un ajout en fin de fichier et pas l'écraser à chaque fois)
 filename : Nom de l'archive passée en paramètre de ptar.
-Génère un logfile formaté pour ptar.
+Génère un logfile pré-formaté pour ptar.
 */
 
 FILE *genlogfile(const char *logname, const char *option, char *filename);
@@ -119,6 +124,8 @@ int listing(headerTar head);
 Pratique l'extraction de l'élément correspondant au header passé en paramètre, en utilisant les données (data) si c'est un fichier.
 Ecrit les codes de retour des open/close/write/symlink/mkdir/setuid/setgid/utime/fsync dans un logfile si l'option -e est spécifiée.
 Affecte correctement tous les attributs des éléments, sauf le mtime des dossiers qui sont affectés en fin de traitement().
+La durabilité est assurée par des appels à fsync() si l'option -p est spécifiée.
+L'existence des dossiers parents/éléments pointés est assurée par des appels aux fonctions de checkfile.h dans le corps principal.
 Si on veut forcer un nom de fichier, le spécifier dans le champ name, sinon mettre NULL.
 Retourne 0 si tout s'est bien passé, -1 sinon.
 */
@@ -144,8 +151,9 @@ bool checksum(headerTar *head);
 
 
 /*
-Charge la librairie dynamique zlib et les fonctions utilisées pour la décompression/extraction.
+Charge la librairie dynamique zlib et les fonctions utilisées pour la décompression+extraction.
 Charge gzopen, gzread, gzrewind, gzseek, gzclose.
+Cette fonctionnalité est parfaitement compatible avec le multithreading.
 La fermeture de la lib se fait dans le main avant le return final.
 */
 

@@ -77,20 +77,20 @@ Utilisation de ptar
     	Il est possible d'également décompresser un fichier.gz (sans archivage), mais les attributs (tels que premissions, gid et uid) ne sont pas pas traités.
     	Les permissions sont forcées : Lecture ecriture et recherche pour l'utilisateur.
     	Cette fonction est purement optionnelle et en bêta.
-    	./ptar -z ptar.1.gz
+    	./ptar -z manpage/ptar.1.gz
 
 
 ###Page de manuel ptar(1)
 
 	Lire la page de manuel de ptar sans manipulations/droits super-utilisateurs au préalable
 
-	   man ./ptar.1.gz
+	   man ./manpage/ptar.1.gz
 
 	Lire la page de manuel avec `man ptar`, nécessite d'avoir les droits super-utilisateurs
 
-	   sudo cp man.config /etc
+	   sudo cp ./manpage/man.config /etc
 	   sudo mkdir -p /usr/local/man/man1/
-	   sudo install -g 0 -o 0 -m 0644 ptar.1.gz /usr/local/man/man1/
+	   sudo install -g 0 -o 0 -m 0644 ./manpage/ptar.1.gz /usr/local/man/man1/
 	   man ptar
 
 	   (La commande `man ptar` devrait alors afficher la page man du bon programme
@@ -108,7 +108,7 @@ Utilisation de ptar
 	   (Veillez à vérifier que votre chemin $PREFIX/bin est contenu dans $PATH).
 	   cd <chemin/dossier/rs2016-Garcia-Zambaux>
 	   (***)
-	   tar -xvzf ptar.1.gz
+	   tar -xvzf ./manpage/ptar.1.gz
 	   groff-utf8 -Tutf8 -mandoc ptar.1 | less
 
 
@@ -127,7 +127,7 @@ Utilisation de ptar
 
   Dernière Màj
 
-  	13/12/2016    01:50     version 1.7.2.0 : Version stable de ptar multithreadé
+  	13/12/2016    20:36     version 1.7.3.0 : Version stable de ptar multithreadé distribuable
 
   Liste des corrections 1.7.0.0:
 
@@ -185,6 +185,18 @@ Utilisation de ptar
         pas de threads) devrait fonctionner correctement. Des flags d'EOF et de corruption ont été déplacés en variables
         globales pour être utilisés par les threads afin d'être terminés correctement. La parallélisation crée bien tous
         les éléments, amélioration de l'algorithme de traitement. Correction du main.
+      - A voir pour des linkname en path absolu. Cela fonctionne étrangement meme pour des archives étrangères...
+
+  Liste des corrections 1.7.3.:
+
+      - Cette version a pour vocation d'être distribuée (au client par exemple).
+      - Le dépôt sur la branche master a été nettoyé et rangé pour un release final propre. Les options de débug comme
+        l'option -g de gcc ont également été enlevées. Le code est également allégé de tout commentaires de débug. Le
+        code a également été espacé et nettoyé.
+      - Un début de rapport de projet est également déposé.
+      - Il est à noter que PTAR gère une archive d'au plus 2048 dossiers différents. Autrement l'attribution de leur date
+        de modification n'est pas toujours assurée. Cette valeur est purement arbitraire et peut être modifiée dans utils.h
+        dans la constante MAXDIR.
 
 
 
@@ -192,7 +204,6 @@ Utilisation de ptar
 ###Debug
 
 	Pour observer le code brute d'une fichier et son affichage
-
 
 		hexdump -C testfalsearch.tar
 		hexdump -C testf.tar

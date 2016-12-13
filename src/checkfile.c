@@ -1,4 +1,4 @@
-///////// Pour ptar 1.3 minimum/////////
+///////// PTAR 1.7 /////////
 /*
 Sert à vérifier si l'argument passé lors de l'éxécution. (i.e. l'archive)
 Si il existe, vérifie est bien nommé sous la forme : "*.tar" ou "*.tar.gz" (si l'extension existe et si elle est correcte)
@@ -47,7 +47,7 @@ bool checkfile(char *filename) {
 	}
 
 	//On récupère l'argument (dans une variable temporaire car strtok agit dessus) et on test si c'est bien une archive .tar ou .tar.gz
-	strcpy(directory_test, filename);   // strcpy(char dest, char src);
+	strcpy(directory_test, filename);
 
 	//Récupère le premier token (voir strtok(3))
 	token=strtok(directory_test, delim);
@@ -62,7 +62,7 @@ bool checkfile(char *filename) {
 
 	//Détection de l'extension
 	//Cas du .tar.gz ou .gz
-	if (strcmp(token_suivant, "gz") == 0) {   //Voir strcmp(3)
+	if (strcmp(token_suivant, "gz") == 0) {
 		if ((strcmp(token_courant, "tar") == 0) && cpt_token > 2) {
 			if (decomp==0) { //Vérification du flag de décompression
 				printf("Séléctionnez l'option -z au minimum pour les fichiers au format .tar.gz\n");
@@ -106,7 +106,6 @@ bool checkfile(char *filename) {
 /*
 Cette fonction vérifie l'existence du fichier ou dossier ou lien symbolique passé en paramètre. Sert à l'extraction().
 Retourne true si il existe, false sinon.
-Retourne true si le fichier pointé par le lien symbolique existe, false sinon.
 */
 
 bool existeDir(char *folder) {
@@ -198,7 +197,9 @@ char *recoverpath(char *linkname, char *pathlink, char pathname[]) {
 /*
 Fonction vérifiant l'existence de l'arborescence de l'élément passé en paramètre.
 Vérifie chaque dossier parent en partant de la racine relative, et le crée si n'existe pas.
-Ecrit les errno de chaque mkdir dans le logfile.
+Ecrit les errno de chaque mkdir dans le logfile. Si aucun errno n'est généré, le errno prendra
+le dernier appel de existeDir() qui renvoit habituellement No Such File or Directory
+après l'éxécution.
 Retourne 0 si la création/exploration a fonctionné et que le path existe.
 Retourne -1 sinon.
 */
@@ -234,18 +235,24 @@ int checkpath(char *path, FILE *logfile) {
 	do {
 		token=strtok(NULL, delim);
 		followingfolder=token;
+
 		//Si le token suivant est NULL, c'est qu'on a atteind l'élément concerné (donc on return avant de tenter un mkdir dessus)
 		if (token==NULL) {
 			break;
 		}
+
+		//On test l'existence du dossier courant à ce moment de la boucle.
 		if (existeDir(pathtotest)==false) {
 			//On crée le dossier avec, pour l'instant, tous les droits (on ne sait jamais) sauf écriture pour other.
 			etat=mkdir(pathtotest, S_IRWXU | S_IRWXG | S_IROTH | S_IXOTH);
 			if (logflag==1) fprintf(logfile, "[Dossier %s] Code retour du errno du mkdir de checkpath (ou opendir si No such file or dir): %s\n", pathtotest, strerror(errno));
 			if (etat<0) etatfinal=-1;
 		}
+
+		//On constitue le path du dossier suivant.
 		strcat(pathtotest, followingfolder);
 		strcat(pathtotest, delim);
+
 	} while (token!=NULL);
 
 	return etatfinal;
