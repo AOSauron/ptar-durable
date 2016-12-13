@@ -12,6 +12,8 @@ rm f1.*
 rm *.jpg
 
 rm logfile.txt
+rm -rf testlien/
+rm -rf testlol/
 
 rm *~
 rm archives_test/*~

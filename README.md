@@ -127,7 +127,7 @@ Utilisation de ptar
 
   Dernière Màj
 
-  	12/12/2016    02:23     version 1.7.1.0 : Version stable de ptar multithreadé
+  	13/12/2016    01:50     version 1.7.2.0 : Version stable de ptar multithreadé
 
   Liste des corrections 1.7.0.0:
 
@@ -176,8 +176,16 @@ Utilisation de ptar
         Une petite fonction loadzlib() s'occupe de précharger dynamiquement avec dlopen les fonctions nécessaires
         au traitementdes archives compressées. La taille d'un tar.gz n'est donc plus limité à 64Ko (mais par le système
         lui-même).
-      - Grâce, entres autres, au point précédent, le programme a été largement optimisé en mémoire, les malloc sont
-        désormais moins nombreux. Le programme se rapproche alors des exigences du logiciel embarqué.
+      - Grâce, entres autres, au point précédent, le programme a été largement optimisé en mémoire, les malloc/realloc et
+        et les free sont désormais moins nombreux. Le programme se rapproche alors des exigences du logiciel embarqué.
+      - La durabilité a été accure : des appels à fflush() avant les printf dans la sortie standard permettent d'assurer
+        correctement l'ecriture dans stdout par un threads avant que celui ci ne termine. La durabilité à l'écriture des
+        éléments a déjà été ajoutée en 1.6.
+      - Les ressources sont désormais bien mutexées, tous les cas de figures utilisant des threads (et par complémentarité,
+        pas de threads) devrait fonctionner correctement. Des flags d'EOF et de corruption ont été déplacés en variables
+        globales pour être utilisés par les threads afin d'être terminés correctement. La parallélisation crée bien tous
+        les éléments, amélioration de l'algorithme de traitement. Correction du main.
+
 
 
 

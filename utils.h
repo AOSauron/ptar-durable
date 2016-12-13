@@ -43,6 +43,9 @@ int (*gzClose)();                                           //Fonction gzclose c
 
 void *handle;                                               //Le handle du dlopen.
 
+bool isEOF;                            											//Flag d'End Of File : true <=> Fin de fichier atteint.
+bool isCorrupted;									                          //Flag de checksum : true <=> header corrompu.
+
 FILE *logfile; 			                                        //Logfile pour l'option -e.
 
 static pthread_mutex_t MutexRead;                           //Mutex pour le read dans traitement().
@@ -142,6 +145,8 @@ bool checksum(headerTar *head);
 
 /*
 Charge la librairie dynamique zlib et les fonctions utilisées pour la décompression/extraction.
+Charge gzopen, gzread, gzrewind, gzseek, gzclose.
+La fermeture de la lib se fait dans le main avant le return final.
 */
 
 void loadzlib();

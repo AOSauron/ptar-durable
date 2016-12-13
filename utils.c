@@ -52,13 +52,9 @@ void *traitement(char *folder) {
 	char ssize[12];										//Champ size avec \0 forcé.
 	char sustar[6];										//Champ magic avec \0 forcé.
 	char smtime[12];									//Champ mtime avec \0 forcé.
-	char sname[100];									//Champ name avec \0 forcé.
+	char sname[100];									//Champ name avec \0 forcé
 
-	bool isEOF; 											//Flag d'End Of File : true <=> Fin de fichier atteint.
-	bool isCorrupted;									//Flag de checksum : true <=> header corrompu.
-
-	int *mtimes;								   		//Liste des mtime, associé au premier tableau (dans l'ordre). Taille variable (par des realloc).
-	int *mtimestemp;									//Buffer temporaire pour realloc(mtimes).
+	int mtimes[MAXDIR];								//Liste des mtime, associé au premier tableau (dans l'ordre).
 	int status;												//Valeur de retour des read() successifs dans la boucle principale : 0 <=> EOF, -1 <=> erreur.
 	int extreturn;	     							//Valeur de retour de extraction().
 	int nbdir; 		     								//Nombre de dossiers (sert au utime final).
@@ -68,22 +64,26 @@ void *traitement(char *folder) {
 	int size;													//Taille du champ size du header, c'est la taille des données suivant le header.
 	int size_reelle;									//Taille des données utiles suivant le header, multiple de 512, puisque les données sont stockées dans des blocks de 512 octets.
 
-	//Initialisation des tableaux dynamiques à NULL pour les realloc (obligatoire).
-	mtimes=NULL;
-	mtimestemp=NULL;
-
 	nbdir=0;
 	size_reelle=0;
-	isEOF=false;
-	isCorrupted=false;
 
 	/*
 	Traitement de chaque header les uns après les autres
 	*/
 
 	do {
+
 		//On lock le mutex pour protéger la ressource avant lecture. Lit donc un élément et traite dessus : lit aussi les potentielles données suivant le header.
 		pthread_mutex_lock(&MutexRead);
+
+		//Si l'End Of File ou un checksum est invalide, stop immédiatemment l'éxécution des autres threads.
+		if (isEOF==true || isCorrupted==true) {
+			pthread_mutex_unlock(&MutexRead);
+			if (thrd==1) {
+				pthread_exit((int *) NULL);
+			}
+			else break;
+		}
 
 		//On lit (read) un premier bloc (header) de 512 octets qu'on met dans une variable du type de la structure header_posix_ustar définie dans header.h (norme POSIX.1)
 		if (decomp==0) {
@@ -116,9 +116,10 @@ void *traitement(char *folder) {
 		Donc la string head.name du premier des 2 enregistrement est forcément vide.
 		On s'en sert donc pour détecter la fin du fichier (End Of File) et ne pas afficher les 2 enregistrements de 0x0. */
 
-		//Détection de l'End Of File : met le flag isEOF à true et stoppe la boucle. Le flag est destiné à aider les développeurs (il ne sert pas à stopper la boucle)
-		if (strlen(sname)==0 || status==0) {
+		//Détection de l'End Of File : met le flag isEOF à true et stoppe la boucle. Le flag est destiné à stopper les autres threads.
+		if (strlen(sname)==0 || status==0 || sname==NULL) {
 			isEOF=true;
+			pthread_mutex_unlock(&MutexRead);
 			break;
 		}
 
@@ -146,6 +147,7 @@ void *traitement(char *folder) {
 
 		if (isCorrupted==true) {
 			printf("La somme de contrôle (checksum) de %s est invalide.\n", sname);
+			pthread_mutex_unlock(&MutexRead);
 			break;
 		}
 
@@ -183,7 +185,7 @@ void *traitement(char *folder) {
 					status=(*gzRead)(filez, data, size_reelle);
 				}
 			}
-			//Sinon un simple lseek() suffira (déplace la tête de lecture d'un certain offset). SAUF pour le tube nommé (voir plus haut).
+			//Sinon un simple lseek() suffira (déplace la tête de lecture d'un certain offset).
 			else {
 				//Le flag (whence) SEEK_CUR assure que la tête de lecture est déplacée de size_réelle octets relativement à la position courante.
 				if (decomp==0) {
@@ -208,9 +210,6 @@ void *traitement(char *folder) {
 			}
 		}
 
-		//On débloque le mutex en lecture.
-		pthread_mutex_unlock(&MutexRead);
-
 		/*
 		Traitement du listing du header (détaillé -l ou non)
 		*/
@@ -222,16 +221,21 @@ void *traitement(char *folder) {
 		//Listing basique :
 		else {
 			printf("%s\n", sname);
+			//Force l'affichage sur la sortie standard pour les threads.
+			if (thrd==1) fflush(stdout);
 		}
+
+		//On débloque le mutex en lecture.
+		pthread_mutex_unlock(&MutexRead);
 
 		/*
 		Traitement de l'extraction -x de l'élément lié au header
 		*/
 
-		if (extract==1) {
+		//On bloque le mutex en écriture.
+		pthread_mutex_lock(&MutexRead);
 
-			//On bloque le mutex en écriture.
-			pthread_mutex_lock(&MutexWrite);
+		if (extract==1) {
 
 			//Récupération du type d'élément.
 			typeflag=head.typeflag[0];
@@ -247,16 +251,9 @@ void *traitement(char *folder) {
 				strcat(smtime,"\0");	//Forcing de la terminaison par \0
 				mtime=strtol(head.mtime, NULL, 8);
 
-				mtimestemp=realloc(mtimes, (nbdir+1)*sizeof(int));
-				if (mtimestemp==NULL) {
-							free(mtimes);    //Désallocation
-							printf("Problème de réallocation du tableaux des mtime.\n");
-							break;
-				}
-				else mtimes=mtimestemp;
-
 				//Récupération à proprement parler.
 				mtimes[nbdir]=mtime;
+
 				nbdir++; //Incrémentaion du nombre de dossiers (représente enfait l'indice dans les tableaux)
 			}
 
@@ -264,24 +261,16 @@ void *traitement(char *folder) {
 			extreturn=extraction(&head, NULL, data);
 
 			if (logflag==1) fprintf(logfile, "Retour d'extraction de %s : %d\n", sname, extreturn);
-
-			//On débloque le mutex en écriture.
-			pthread_mutex_unlock(&MutexWrite);
 		}
+
+		//On débloque le mutex en écriture.
+		pthread_mutex_unlock(&MutexRead);
 
 	} while (isEOF==false);  //On aurait pu mettre while(1) puisque la boucle doit normalement se faire breaker plus haut.
 
 	/*
 	Fin des traitements
 	*/
-
-	//Fermeture de l'archive.
-	if (decomp==0) {
-		close(file);
-	}
-	else {
-		(*gzClose)(filez);
-	}
 
 	//Affectation du bon mtime pour les dossiers après traitement (nécessaire d'être en toute fin) de l'extraction.
 	if (extract==1 && nbdir>0) { //Il faut au moins 1 dossier pour permettre l'action.
@@ -291,25 +280,29 @@ void *traitement(char *folder) {
 			utim=utime(dirlist[k], &tm);
 			if (logflag==1) fprintf(logfile, "[Dossier %s] Code retour du utime : %d\n", dirlist[k], utim);
 		}
-		//Free des pointeurs utilisés pour l'extraction des dossiers.
-		free(mtimes);
 	}
 
-	//Fermeture du logfile
+	pthread_mutex_unlock(&MutexWrite);
+	//Fin du logfile (fermeture dans main)
 	if (logflag==1) {
 		if (isCorrupted==false) {
 			fputs("Les sommes de contrôle (checksum) sont toutes valides.\n", logfile);
 			fputs("Fin de decompression/extraction.\n\n", logfile);
 		}
 		else fputs("Une des sommes de contrôle n'est pas valide, arrêt de ptar...\n", logfile);
-		fclose(logfile);
 	}
+	pthread_mutex_unlock(&MutexWrite);
 
 	//Si l'archive est corrompu, ptar doit renvoyer 1
-	if (isCorrupted==true) exit(EXIT_FAILURE);
+	if (isCorrupted==true) {
+		exit(EXIT_FAILURE);
+	}
 
-	//Sinon normalement tout s'est bien passé, et ptar renvoie 0.
-	else exit(EXIT_SUCCESS);
+	//Sinon normalement tout s'est bien passé, on return ou thrd_exit selon les options.
+	else {
+		if (thrd==0) return NULL;
+		else pthread_exit((int *) NULL);
+	}
 }
 
 
@@ -408,6 +401,9 @@ int listing(headerTar head) {
 
 	//Print des autres informations : uid, gid, taille, date de modification, nom, et nom du fichier linké (vide si ce n'est pas un lien symbo)
 	printf(" %d/%d %d %s %s%s%s\n", uid, gid, size, bmtime, sname, (typeflag=='2') ? " -> " : "", (typeflag=='2') ? head.linkname : "");
+
+	//Force l'affichage sur la sortie standard pour les threads.
+	if (thrd==1) fflush(stdout);
 
 	return 0;
 }
@@ -762,5 +758,4 @@ void loadzlib() {
 		if (logflag==1) fclose(logfile);
 		exit(EXIT_FAILURE);
 	}
-
 }

@@ -1,5 +1,5 @@
 //////////////////////////////////////////////////////////   ptar - Extracteur d'archives durable et parallèle  ///////////////////////////////////////////////////////////////////
-///////////////////////////////////////////////////////////////////////   v 1.7.1.0        12/12/2016   ///////////////////////////////////////////////////////////////////////////////////
+///////////////////////////////////////////////////////////////////////   v 1.7.2.0        13/12/2016   ///////////////////////////////////////////////////////////////////////////////////
 
 #include <stdio.h>
 #include <stdlib.h>
@@ -33,6 +33,8 @@ int main(int argc, char *argv[]) {
 	listingd=0;
 	decomp=0;
 	logflag=0;
+	isEOF=false;
+	isCorrupted=false;
 
 	//Faire taire ces warning unused
 	MutexRead=(pthread_mutex_t) MutexRead;
@@ -159,14 +161,27 @@ int main(int argc, char *argv[]) {
 
 		//Join des threads
 		for (j=0; j<nthreads; j++) {
-			pthread_join(tabthrd[j], &ret);
+			(void)pthread_join(tabthrd[j], &ret);
+		}
+		//Fermeture de l'archive.
+		if (decomp==0) {
+			close(file);
+		}
+		else {
+			(*gzClose)(filez);
+		}
+
+		//Fermeture propre du logfile.
+		if (logflag==1) {
+			fclose(logfile);
 		}
 
 		//Libération du pointeur sur les threads.
 		free(tabthrd);
 
 		//Fermeture de zlib dynaique.
-		dlclose(handle);
+		if (decomp==1 && handle != NULL) dlclose(handle);
+
 	}
 	//Si on ne veut pas utiliser de threads, on appelle tous simplement la procédure.
 	else {
