@@ -593,9 +593,9 @@ int extraction(headerTar *head, char *namex, char *data) {
 			else if (slink[0]!='/') {
 				strcpy(filename,"");
 				recoverpath(slink, name, filename);
-				printf("slink = %s\n", slink);
-				printf("name = %s\n", name);
-				printf("filename = %s\n", filename);
+				//printf("slink = %s\n", slink);
+				//printf("name = %s\n", name);
+				//printf("filename = %s\n", filename);
 			}
 
 			//Cas où le linkname contient le chemin absolu
@@ -656,7 +656,7 @@ int extraction(headerTar *head, char *namex, char *data) {
 				if (logflag==1) fprintf(logfile, "[Lien symbolique %s] Code retour du remove/rmdir du tempfile : %d\n", name, rm);
 			}
 			break;
-			
+
 		//Répertoires
 		case '5' :
 			//On vérifie l'existence du dossier.
