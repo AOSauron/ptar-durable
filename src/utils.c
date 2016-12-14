@@ -540,6 +540,7 @@ int extraction(headerTar *head, char *namex, char *data) {
 
 	//Séléction du type d'élément et actions.
 	switch (typeflag) {
+
 		//Fichiers réguliers
 		case '0' :
 			//Si le fichier existe on met à jour ses permissions.
@@ -549,7 +550,7 @@ int extraction(headerTar *head, char *namex, char *data) {
 			}
 
 			//On vérifie si l'arborescence de dossiers existe et on la crée le cas échéant.
-			chkpath=checkpath(name, logfile);
+			chkpath=checkpath(name);
 			if (logflag==1) fprintf(logfile, "[Fichier %s] Code retour du checkpath : %d\n", name, chkpath);
 
 			//open() avec O_CREAT pour créer le fichier et O_WRONLY pour pouvoir écrire dedans. O_EXCL pour détecerla préexistence.
@@ -580,20 +581,30 @@ int extraction(headerTar *head, char *namex, char *data) {
 			if (logflag==1) fprintf(logfile, "[Fichier %s] Code retour du utime : %d\n", name, utim);
 
 			break;
+
 		//Liens symboliques
 		case '2' :
+			//Dans le cas où on a ../../../../etc... => 2e forme de chemin absolu.
+			if (slink[0]=='.' && slink[1]=='.') {
+				strcpy(filename,slink);
+			}
+
 			//Dans le cas ou le fichier/dossier est "plus haut ou au même niveau" que le lien, le path est déjà complet.
-			if (slink[0]!='/') {
+			else if (slink[0]!='/') {
 				strcpy(filename,"");
 				recoverpath(slink, name, filename);
+				printf("slink = %s\n", slink);
+				printf("name = %s\n", name);
+				printf("filename = %s\n", filename);
 			}
+
+			//Cas où le linkname contient le chemin absolu
 			else {
-				//Cas où le linkname contient le chemin absolu
 				strcpy(filename,slink);
 			}
 
 			//On vérifie si l'arborescence de dossiers existe et on la crée le cas échéant.
-			chkpath=checkpath(name, logfile);
+			chkpath=checkpath(name);
 			if (logflag==1) fprintf(logfile, "[Lien symobolique %s] Code retour du checkpath : %d\n", name, chkpath);
 
 			//On vérifie si le fichier/dossier pointé existe et on le créer le cas échéant.
@@ -602,7 +613,7 @@ int extraction(headerTar *head, char *namex, char *data) {
 				notExisting=true;
 
 				//Création de l'arborescence du dossier pointé.
-				chkpath=checkpath(filename, logfile);
+				chkpath=checkpath(filename);
 				if (logflag==1) fprintf(logfile, "[Lien symobolique %s] Code retour du checkpath du dossier pointé : %d\n", name, chkpath);
 
 				//Création du dossier avec tous les droits (temporaires, seront mis à jour plus tard)
@@ -615,7 +626,7 @@ int extraction(headerTar *head, char *namex, char *data) {
 				notExisting=true;
 
 				//Création de l'arborescence du fichier pointé.
-				chkpath=checkpath(filename, logfile);
+				chkpath=checkpath(filename);
 				if (logflag==1) fprintf(logfile, "[Lien symobolique %s] Code retour du checkpath du fichier pointé : %d\n", name, chkpath);
 
 				//Création du fichier avec tous les droits (temporaires, seront mis à jour plus tard)
@@ -645,6 +656,7 @@ int extraction(headerTar *head, char *namex, char *data) {
 				if (logflag==1) fprintf(logfile, "[Lien symbolique %s] Code retour du remove/rmdir du tempfile : %d\n", name, rm);
 			}
 			break;
+			
 		//Répertoires
 		case '5' :
 			//On vérifie l'existence du dossier.
@@ -657,7 +669,7 @@ int extraction(headerTar *head, char *namex, char *data) {
 			//Le dossier n'existe pas :
 			else {
 				//On crée son arborescence de dossiers parente.
-				chkpath=checkpath(name, logfile);
+				chkpath=checkpath(name);
 				if (logflag==1) fprintf(logfile, "[Dossier %s] Code retour du checkpath du dossier: %d\n", name, chkpath);
 
 				//Puis on crée le dossier concerné.

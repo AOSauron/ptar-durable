@@ -204,7 +204,7 @@ Retourne 0 si la création/exploration a fonctionné et que le path existe.
 Retourne -1 sinon.
 */
 
-int checkpath(char *path, FILE *logfile) {
+int checkpath(char *path) {
 
 	char *token;
 	char *currentfolder;
