@@ -35,6 +35,7 @@ int main(int argc, char *argv[]) {
 	logflag=0;
 	isEOF=false;
 	isCorrupted=false;
+	corrupted=false;
 
 	//Faire taire ces warning unused
 	MutexRead=(pthread_mutex_t) MutexRead;

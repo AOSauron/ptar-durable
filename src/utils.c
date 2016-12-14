@@ -77,7 +77,7 @@ void *traitement(char *folder) {
 		pthread_mutex_lock(&MutexRead);
 
 		//Si l'End Of File ou un checksum est invalide, stop immédiatemment l'éxécution des autres threads.
-		if (isEOF==true || isCorrupted==true) {
+		if (isEOF==true) {
 			pthread_mutex_unlock(&MutexRead);
 			if (thrd==1) {
 				pthread_exit((int *) NULL);
@@ -138,18 +138,6 @@ void *traitement(char *folder) {
 				(*gzClose)(filez);
 			}
 			exit(EXIT_FAILURE);
-		}
-
-		/*
-		Vérification de la somme de contrôle (checksum)
-		*/
-
-		isCorrupted=checksum(&head);
-
-		if (isCorrupted==true) {
-			printf("La somme de contrôle (checksum) de %s est invalide.\n", sname);
-			pthread_mutex_unlock(&MutexRead);
-			break;
 		}
 
 		/*
@@ -214,59 +202,98 @@ void *traitement(char *folder) {
 		Traitement du listing du header (détaillé -l ou non)
 		*/
 
-		//Listing détaillé :
-		if (listingd==1) {
-			listing(head);
+		//On ne print pas le nom du header Pax (de type g) si il y en a un.
+		if (head.typeflag[0] != 'x' || head.typeflag[0] == 'g') {
+			//Listing détaillé :
+			if (listingd==1) {
+				listing(head);
+			}
+			//Listing basique :
+			else {
+				printf("%s\n", sname);
+				//Force l'affichage sur la sortie standard pour les threads.
+				if (thrd==1) fflush(stdout);
+			}
 		}
-		//Listing basique :
-		else {
-			printf("%s\n", sname);
-			//Force l'affichage sur la sortie standard pour les threads.
-			if (thrd==1) fflush(stdout);
-		}
-
-		//On débloque le mutex en lecture.
-		pthread_mutex_unlock(&MutexRead);
 
 		/*
-		Traitement de l'extraction -x de l'élément lié au header
+		Calcul du checksum et vérification du type de header : USTAR standard ou Pax
 		*/
 
-		//On bloque le mutex en écriture.
-		pthread_mutex_lock(&MutexRead);
+		//On compare les checksum.
+		isCorrupted=checksum(&head);
 
-		if (extract==1) {
+		//Si le checksum de du header est corrompu, ou si il s'agit d'un header Pax, on passe au suivant.
+		if (isCorrupted==true || head.typeflag[0] == 'x'|| head.typeflag[0] == 'g') {
 
-			//Récupération du type d'élément.
-			typeflag=head.typeflag[0];
-
-			//Récupération du nom dans un tableau si c'est un dossier (et de son mtime)
-			if (typeflag=='5') {
-
-				//On récupère le nom
-				strcpy(dirlist[nbdir], sname);
-
-				//Réalloc de mtimes
-				strncpy(smtime, head.mtime, sizeof(head.mtime));
-				strcat(smtime,"\0");
-				mtime=strtol(head.mtime, NULL, 8);
-
-				//Récupération à proprement parler.
-				mtimes[nbdir]=mtime;
-
-				//Incrémentaion du nombre de dossiers (représente enfait l'indice dans les tableaux)
-				nbdir++;
+			//On set le super-flag de corruption à true pour le print final avant exit(), si il s'agit bien de corruption.
+			if (isCorrupted==true) {
+				corrupted=true;
+				printf("La somme de contrôle (checksum) de %s est invalide... On passe à l'en-tête suivante.\n", sname);
 			}
 
-			//Extraction de l'élément.
-			extreturn=extraction(&head, NULL, data);
+			//On libère également les données potentielles suivant le header si le buffer est rempli :
+			if (extract==1 || size>0) {
+				free(data);
+			}
 
-			if (logflag==1) fprintf(logfile, "Retour d'extraction de %s : %d\n", sname, extreturn);
+			//On délock le mutex.
+			pthread_mutex_unlock(&MutexRead);
+
+			//Si l'End Of File ou un checksum est invalide, stop immédiatemment l'éxécution des autres threads.
+			if (isEOF==true) {
+				if (thrd==1) {
+					pthread_exit((int *) NULL);
+				}
+				else break;
+			}
 		}
 
-		//On débloque le mutex en écriture.
-		pthread_mutex_unlock(&MutexRead);
+		//Sinon on continu normalement !
+		else {
 
+			//On débloque le mutex en lecture.
+			pthread_mutex_unlock(&MutexRead);
+
+			/*
+			Traitement de l'extraction -x de l'élément lié au header
+			*/
+
+			//On bloque le mutex en écriture.
+			pthread_mutex_lock(&MutexRead);
+
+			if (extract==1) {
+
+				//Récupération du type d'élément.
+				typeflag=head.typeflag[0];
+
+				//Récupération du nom dans un tableau si c'est un dossier (et de son mtime)
+				if (typeflag=='5') {
+
+					//On récupère le nom
+					strcpy(dirlist[nbdir], sname);
+
+					//Réalloc de mtimes
+					strncpy(smtime, head.mtime, sizeof(head.mtime));
+					strcat(smtime,"\0");
+					mtime=strtol(head.mtime, NULL, 8);
+
+					//Récupération à proprement parler.
+					mtimes[nbdir]=mtime;
+
+					//Incrémentaion du nombre de dossiers (représente enfait l'indice dans les tableaux)
+					nbdir++;
+				}
+
+				//Extraction de l'élément.
+				extreturn=extraction(&head, NULL, data);
+
+				if (logflag==1) fprintf(logfile, "Retour d'extraction de %s : %d\n", sname, extreturn);
+			}
+
+			//On débloque le mutex en écriture.
+			pthread_mutex_unlock(&MutexRead);
+		}
 	} while (isEOF==false);  //On aurait pu mettre while(1) puisque la boucle doit normalement se faire breaker plus haut.
 
 	/*
@@ -286,7 +313,7 @@ void *traitement(char *folder) {
 	pthread_mutex_unlock(&MutexWrite);
 	//Fin du logfile (fermeture dans main)
 	if (logflag==1) {
-		if (isCorrupted==false) {
+		if (corrupted==false) {
 			fputs("Les sommes de contrôle (checksum) sont toutes valides.\n", logfile);
 			fputs("Fin de decompression/extraction.\n\n", logfile);
 		}
@@ -295,7 +322,8 @@ void *traitement(char *folder) {
 	pthread_mutex_unlock(&MutexWrite);
 
 	//Si l'archive est corrompu, ptar doit renvoyer 1
-	if (isCorrupted==true) {
+	if (corrupted==true) {
+		printf("ptar : arrêt avec somme de contrôle invalide d'un des élément de l'archive.\n");
 		exit(EXIT_FAILURE);
 	}
 
@@ -663,6 +691,8 @@ Pour cela, recalcule le checksum du header et le compare au champs checksum sur 
 Avant la comparaison, on applique un masque 0x3FFFF au checksum calculé car seuls les 18 bits de poids faible
 nous importent ici pour la comparaison. Pour cela on utilise un ET bit-à-bit. Ce n'est pas nécessaire dans la
 plupart des cas mais c'est plus sûr pour la comparaison (les autres bits pouvant changer la valeur).
+Un seconde masque 0xFF est appliqué sur chaque char du header, en effet certain caractère spéciaux comme
+le char 'é' possède une valeur signée ffffffc3, on ne veut que les 8 derniers bits.
 Retourne false si le header n'est pas corrompu, true sinon.
 */
 
@@ -689,7 +719,7 @@ bool checksum(headerTar *head) {
 
 	//On boucle sur les caractères en s'arretant avant le champ checksum.
 	for (i=0; i<148; i++) {
-		chksum = chksum+(unsigned int)pHeader[i];
+		chksum = chksum+((unsigned int)pHeader[i] & 0xFF);
 	}
 
 	//Ici on ne tient pas du champ checksum (pour des raisons évidentes...). On considère que c'est 8 blancs de valeur décimale 32 en ASCII
@@ -699,7 +729,7 @@ bool checksum(headerTar *head) {
 
 	//Et on finit de boucler sur le reste des caractères.
 	for (i=156; i<512; i++) {
-		chksum = chksum+(unsigned int)pHeader[i];
+		chksum = chksum+((unsigned int)pHeader[i] & 0xFF);
 	}
 
 	//On ne garde que les 18 bits de poids faible en appliquant un masque. Ce n'est pas absolument nécessaire mais c'est plus sûr pour la comparaison.
@@ -769,7 +799,7 @@ void loadzlib() {
 	gzRead=dlsym(handle, "gzread");
 	errorread=dlerror();
 	if (logflag==1) fprintf(logfile, "Code retour du dlsym(gzread) : %s\n", errorread);
-	
+
 	gzClose=dlsym(handle, "gzclose");
 	errorclose=dlerror();
 	if (logflag==1) fprintf(logfile, "Code retour du dlsym(gzclose) : %s\n", errorclose);

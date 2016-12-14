@@ -197,6 +197,18 @@ Utilisation de ptar
       - Il est à noter que PTAR gère une archive d'au plus 2048 dossiers différents. Autrement l'attribution de leur date
         de modification n'est pas toujours assurée. Cette valeur est purement arbitraire et peut être modifiée dans utils.h
         dans la constante MAXDIR.
+      - Une erreur dans le checksum n'arrête plus ptar, il saute tout simplement ce header et passe au suivant
+        à l'instar de tar lors d'une erreur de checksum.
+      - Le checksum donne désormais une valeur correcte pour les caractères spéciaux comme 'è' grace à un masque (ou
+        ET bit-à-bit) appliqué lors du calcul.
+      - La compatibilité de ptar a été améliorée: gère désormais des header "USTAR Pax" en les sautant tout simplement.
+        Dans une version ultérieure les données de ces headers seront utilisés à bon escient; ici il s'agit surtout
+        de permettre une compatibilité avec UTF-8 pour les pathname (c'est-à-dire des caractère spéciaux dans le nom
+        de l'élément comme 'é' ou 'à').
+      - Evolution possible du programme : une compatibilité accrue suivant le système et le type d'archive, en effet
+        ptar ne peut gérer que des archives "USTAR POSIX", il faudrait le rendre compatible avec les archives "GNU tar".
+        Ceci est tout de même hors des consignes du sujet.
+      - L'archive 'vicieuse' d'essai archives_test/inc.tar a été encore améliorée.
 
 
 

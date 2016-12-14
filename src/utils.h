@@ -49,6 +49,7 @@ void *handle;                                               //Le handle du dlope
 
 bool isEOF;                            											//Flag d'End Of File : true <=> Fin de fichier atteint.
 bool isCorrupted;									                          //Flag de checksum : true <=> header corrompu.
+bool corrupted;                                             //Se met à true et le reste si au moins 1 header est corrompu.
 
 FILE *logfile; 			                                        //Logfile pour l'option -e.
 
@@ -143,6 +144,8 @@ une suite de 8 espaces ASCII de valeur décimale 32.
 Avant la comparaison, on applique un masque 0x3FFFF au checksum calculé car seul les 18 bits de poids faible
 nous importent ici pourla comparaison. Pour cela on utilise un ET bit-à-bit. Ce n'est pas nécessaire mais
 c'est plus sûr pour la comparaison. (les autres bits pouvant changer la valeur)
+Un seconde masque 0xFF est appliqué sur chaque char du header, en effet certain caractère spéciaux comme
+le char 'é' possède une valeur signée ffffffc3, on ne veut que les 8 derniers bits.
 Retourne true si le checksum est bon, false sinon.
 */
 
