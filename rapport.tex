@@ -1,4 +1,4 @@
-\documentclass[11pt, a4paper]{report}
+\documentclass[12pt, a4paper]{report}
 
 \usepackage[T1]{fontenc}
 \usepackage[utf8]{inputenc} 
@@ -12,6 +12,9 @@
 \usepackage{amsmath}
 \usepackage{relsize}
 \usepackage{titlepic}
+\usepackage{times}
+
+
 
 
 \begin{titlepage}
@@ -25,30 +28,55 @@
 
 
 
+
 \begin{document}
 \maketitle
 
 
+%page manu
+%listeur basique
+%étapes 2 et 3 : ligns de cmd ac option -x
+%étape 4 : listing détaillé + application des attributs à l'extraction
+%étape 6 : chgmt dyn et décompr
+%étape 7 : checksum
+%étape 5 : parallélisation, durabilité
+
+\chapter*{Remerciements}
+
+
 \chapter*{Introduction}
-\hspace{1cm}\vspace{0.2cm}
+\hspace{1cm}L'application que nous avons développée ici a pour objectif de lire des archives \textit{tar} puis d'en extraire le contenu dans des fichiers.\vspace{0.2cm}
 
-\hspace{0.6cm}\vspace{0.2cm}
-
-
-\chapter*{Diagramme des classes}
+\hspace{0.5cm}Le projet s'inscrivant dans le module de Réseaux et Sytèmes, \vspace{0.2cm}
 
 
-\chapter*{Diagrammes de séquence}
+\chapter*{1\hspace{1cm}Conception}
 
-\section*{Saisie de la fiche de renseignements}
+\section*{\hspace{0.6cm}1.1\hspace{0.6cm}Page de manuel}
+\hspace{1cm}Pour l'écriture de la page de manuel \textit{ptar(1)}, il a fallu assimiler le language utilisé pour écrire ce type de documents. Nous avons ainsi été capable de reproduire la page donnée dans le sujet du projet. Pour l'édition et l'affichage de la page, nous avons utilisé l'utilitaire \textit{groff-utf8} qui permet l'utilisation de caractères spéciaux comme les accents français. \\
 
+\hspace{0.5cm}Pour visualiser la page du manuel, il est possible d'utiliser la commande : \[man\hspace{0.3cm}./manpage/ptar.1.gz\]  depuis la racine du dépot. À noter que le format \textit{.1.gz} est un format standard pour les pages (1) de manuels. Si toute fois on souhaite la consulter avec la commande : \[man\hspace{0.3cm}ptar\] il est nécessaire de d'abord suivre la procédure d'installation décrite dans le \textit{README} (nécessite les droits administrateur).
 
-\section*{Prise de décision concernant une fiche de renseignements}
+\section*{\hspace{0.6cm}1.2\hspace{0.6cm}Étape 1 : Listeur basique}
+\hspace{1cm}Tout au long de la conception du programme, la page de manuel \textit{tar(5)} nous a servi de référence. Nous y avons d'abord trouvée la structure d'une entête d'archive \textit{POSIX USTAR} (nous avons donc choisi de gérer ce type d'archives). \\
 
- 
-\section*{Initialisation d'une nouvelle année}
+\hspace{0.5cm}Pour parcourir l'archive, nous avons utilisé les fonctions de \textit{fcntl.h} (\textit{open()}, \textit{read()}, \textit{lseek()}, \textit{close()}) et une boucle \textit{do...while} dont la sortie est assurée par la détection d'une taille nulle du champ \textit{name} du \textit{header}. En effet, la fin de l'archive (\textit{End Of File}) est indiquée par deux blocs successifs d'octets à 0 (voir \textit{tar(5)}). \\
 
+\hspace{0.5cm}Nous avons également dû omettre les données suivant le \textit{header} dans le cas d'un fichier non vide. Pour cela, nous récupérions le champ \textit{size} du \textit{header} afin d'appeler la fonction \textit{lseek()} pour déplacer la tête de lecture courante du \textit{offset} égal à \textit{size}. Deux problèmes se sont alors présentés : 
+\begin{itemize}
+\item \hspace{0.2cm}Nous devions convertir \textit{size}, une chaine de caractère représentant la taille en octal, en un entier (\textit{int}) en base décimale. Pour cela, nous avons utilisé la fonction : \[long\hspace{0.2cm}int\hspace{0.2cm}strtol(char\hspace{0.1cm}*string,\hspace{0.2cm}char\hspace{0.1cm}**endptr,\hspace{0.2cm}int\hspace{0.1cm}base)\]Le deuxième argument ne nous intéresse pas ici et est mis à \textit{NULL}.
+\item \hspace{0.2cm}En appliquant simplement cela, nous nous sommes apperçu que le programme n'affichait pas ce qui était attendu. Cela était dû à la segmentation des archives \textit{tar} en blocs de 512 octets et était particulièrement visible sur les données des fichiers (qui suivent le \textit{header} concerné). Nous avons trouvé ce phénomène en utilisant la commande : \[hexdump\hspace{0.2cm}-C\hspace{0.2cm}nomArchive.tar\] Nous avons donc dû déterminer le multiple de 512 supérieur à \textit{size} après conversion qui lui était le plus proche, tout en excluant le cas où \textit{size} en était déjà un multiple.
+\end{itemize}
 
-\chapter*{Diagramme d'états}
+\section*{\hspace{0.6cm}1.4\hspace{0.6cm}Étapes 4 : Listing détaillé et application des attributs à l'extraction}
+\hspace{1cm}Pour gérer les options en lignes de commande, nous avons utilisé la page de manuel \textit{getopt(3)}. Cette partie n'a pas posé de problème particulier.\\
+
+\hspace{0.5cm}À cette étape, nous avons voulu vérifier l'existance et la validité (extension correcte) de l'archive passée en paramètre (voir \textit{checkfile.h} dans les sources du dépot). Nous avons aussi, dans la boucle principale, vérifié le champ \textit{magic} du \textit{header} pour nous assurer qu'il s'agissait bien d'une archive \textit{USTAR}. Le cas échéant, \textit{ptar} retourne immédiatement 1.\\
+\\
+
+\hspace{0.5cm}Pour ce qui est de l'extraction, nous avons créer une fonction \[int\hspace{0.2cm}extraction(headerTar\hspace{0.1cm}*header,\hspace{0.2cm}char\hspace{0.1cm}*data)\] où \textit{data} sont les données éventuelles suivant le \textit{header} récupérées à l'aide d'un appel à \textit{read()} à la place de \textit{lseek()}. La différenciation d'éléments se faisait sur le champ \textit{typeflag} du \textit{header} à l'aide d'un \textit{switch...case} sur le premier caractère de ce champ. Pour extraire, nous avons utilisé diverses fonctions telles que \textit{open()}, \textit{write()}, \textit{mkdir()} et \textit{simlink()}. Il fallait faire attention à passer \textit{size} converti non ramené au multiple de 512 calculé dans la boucle principale en argument au \textit{write()} éventuel.
+
+\section*{\hspace{0.6cm}1.3\hspace{0.6cm}Étapes 2 et 3 : Options de lignes de commande et extraction}
+
 
 \end{document}
