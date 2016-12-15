@@ -127,7 +127,7 @@ Utilisation de ptar
 
   Dernière Màj
 
-  	13/12/2016    20:36     version 1.7.3.0 : Version stable de ptar multithreadé distribuable
+  	14/12/2016    23:29     version 1.7.4.0 : Version stable de ptar multithreadé distribuable
 
   Liste des corrections 1.7.0.0:
 
@@ -187,7 +187,7 @@ Utilisation de ptar
         les éléments, amélioration de l'algorithme de traitement. Correction du main.
       - A voir pour des linkname en path absolu. Cela fonctionne étrangement meme pour des archives étrangères...
 
-  Liste des corrections 1.7.3.:
+  Liste des corrections 1.7.3.0:
 
       - Cette version a pour vocation d'être distribuée (au client par exemple).
       - Le dépôt sur la branche master a été nettoyé et rangé pour un release final propre. Les options de débug comme
@@ -210,6 +210,15 @@ Utilisation de ptar
         Ceci est tout de même hors des consignes du sujet.
       - L'archive 'vicieuse' d'essai archives_test/inc.tar a été encore améliorée.
 
+Liste des corrections 1.7.4.0:
+
+      - Une correction de bug majeur mis en évidence par le test blanc du 14/12/16 a été effectuée. En effet, ptar considérait
+        que l'élément pointé par un lien symbolique devait forcément exister avant d'utiliser symlink() : c'était une erreur car
+        certains liens créés sous un environnement puis compressés et désarchivés dans un autre pouvaient ne plus pointer vers rien,
+        mais devaient tout de même exister ! (cf test blanc). Il s'avère que symlink() fonctionne même si l'élément pointé n'existe pas,
+        mais renvoie tout de même -1 (noté dans le logfile si -e est saisie).
+      - Le code a subi un nouveau léger nettoyage avant le dernier test blanc bonus et le release final.
+      - L'archive vicieuse (renommée pour l'occasion) a encore été améliorée en vu du rodage du programme.
 
 
 

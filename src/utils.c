@@ -444,7 +444,6 @@ int extraction(headerTar *head, char *namex, char *data) {
 
 	struct timeval *tv;
 	char *name;
-	char filename[255];
 	char typeflag;
 	char ssize[12];
 	char suid[8];
@@ -453,7 +452,6 @@ int extraction(headerTar *head, char *namex, char *data) {
 	char smtime[12];
 	char sname[100];
 	char slink[100];
-	bool notExisting;
 
 	int mode;
 	int size;
@@ -470,7 +468,6 @@ int extraction(headerTar *head, char *namex, char *data) {
 	int sync;
 	int utim;
 	int chkpath;
-	int rm;
 
 	//Nécessaire d'initialiser ces flags car pas initialisés dans tous les cas (et causent un 'faux' return -1 dans certains cas).
 	file=0;
@@ -481,7 +478,6 @@ int extraction(headerTar *head, char *namex, char *data) {
 	etatuid=0;
 	etat=0;
 	chkpath=0;
-	notExisting=false;
 
 	//Parsing correct de la terminaison par \0
 	strncpy(ssize, head->size, sizeof(head->size));
@@ -584,55 +580,11 @@ int extraction(headerTar *head, char *namex, char *data) {
 
 		//Liens symboliques
 		case '2' :
-			//Dans le cas où on a ../../../../etc... => 2e forme de chemin absolu.
-			if (slink[0]=='.' && slink[1]=='.') {
-				strcpy(filename,slink);
-			}
+			//On ne vérifie plus si l'élément pointé existe : symlink peut linker sur des éléments inexistant dans l'environnement courant.
 
-			//Dans le cas ou le fichier/dossier est "plus haut ou au même niveau" que le lien, le path est déjà complet.
-			else if (slink[0]!='/') {
-				strcpy(filename,"");
-				recoverpath(slink, name, filename);
-				//printf("slink = %s\n", slink);
-				//printf("name = %s\n", name);
-				//printf("filename = %s\n", filename);
-			}
-
-			//Cas où le linkname contient le chemin absolu
-			else {
-				strcpy(filename,slink);
-			}
-
-			//On vérifie si l'arborescence de dossiers existe et on la crée le cas échéant.
+			//On vérifie si l'arborescence de dossiers du lien existe et on la crée le cas échéant.
 			chkpath=checkpath(name);
 			if (logflag==1) fprintf(logfile, "[Lien symobolique %s] Code retour du checkpath : %d\n", name, chkpath);
-
-			//On vérifie si le fichier/dossier pointé existe et on le créer le cas échéant.
-			//Cas du dossier.
-			if (filename[strlen(filename)-1]=='/' && existeDir(filename)==false) {
-				notExisting=true;
-
-				//Création de l'arborescence du dossier pointé.
-				chkpath=checkpath(filename);
-				if (logflag==1) fprintf(logfile, "[Lien symobolique %s] Code retour du checkpath du dossier pointé : %d\n", name, chkpath);
-
-				//Création du dossier avec tous les droits (temporaires, seront mis à jour plus tard)
-				mkdir(filename, S_IRWXO | S_IRWXO | S_IRWXO);
-			}
-
-			//Cas du reste (fichier/symlink)
-			else if (existeFile(filename)==false) {
-				//Set du flag d'existence à false.
-				notExisting=true;
-
-				//Création de l'arborescence du fichier pointé.
-				chkpath=checkpath(filename);
-				if (logflag==1) fprintf(logfile, "[Lien symobolique %s] Code retour du checkpath du fichier pointé : %d\n", name, chkpath);
-
-				//Création du fichier avec tous les droits (temporaires, seront mis à jour plus tard)
-				file=open(filename, O_CREAT | O_WRONLY, S_IRWXO | S_IRWXO | S_IRWXO);
-				close(file);
-			}
 
 			//On créé ensuite le lien symbolique
 			etat=symlink(slink, name);
@@ -642,19 +594,6 @@ int extraction(headerTar *head, char *namex, char *data) {
 			utim=lutimes(name, tv);
 			if (logflag==1) fprintf(logfile, "[Lien symbolique %s] Code retour du utime : %d\n", name, utim);
 
-			//Si l'élément pointé n'existait pas, on le supprime pour une création éventuelle plus propre tard.
-			if (notExisting==true) {
-				//Cas d'un dossier.
-				if (filename[strlen(filename)-1]=='/') {
-					rm=rmdir(filename);
-				}
-
-				//Le reste.
-				else {
-					rm=remove(filename);
-				}
-				if (logflag==1) fprintf(logfile, "[Lien symbolique %s] Code retour du remove/rmdir du tempfile : %d\n", name, rm);
-			}
 			break;
 
 		//Répertoires
@@ -677,6 +616,8 @@ int extraction(headerTar *head, char *namex, char *data) {
 				if (logflag==1) fprintf(logfile, "[Dossier %s] Code retour du mkdir : %d\n", name, etat);
 			}
 			break;
+
+		//Autre typeflag : peut être des typeflag de GNU tar non gérés par ptar.
 		default:
 			printf("Elément inconnu par ptar : Typeflag = [%c]\n", typeflag);
 			etat=-1;
@@ -687,7 +628,7 @@ int extraction(headerTar *head, char *namex, char *data) {
 	free(tv);
 
 	//Code de retour de extraction (évolutif, rajouter éventuellement des cas de return -1)
-	if (etat<0  || file<0 || writ<0 || etatuid<0 || etatgid<0 || sync<0 || utim<0 || rm<0) {
+	if (etat<0  || file<0 || writ<0 || etatuid<0 || etatgid<0 || sync<0 || utim<0) {
 		return -1;
 	}
 
