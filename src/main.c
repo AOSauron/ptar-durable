@@ -185,7 +185,9 @@ int main(int argc, char *argv[]) {
 		free(tabthrd);
 
 		//Fermeture de zlib dynaique.
-		if (decomp==1 && handle != NULL) dlclose(handle);
+		if (decomp==1 && handle != NULL) {
+			dlclose(handle);
+		}
 
 	}
 	//Si on ne veut pas utiliser de threads, on appelle tous simplement la procédure.
