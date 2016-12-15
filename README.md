@@ -74,12 +74,6 @@ Utilisation de ptar
 	    ./rmtest.sh
 
 
-    	Il est possible d'également décompresser un fichier.gz (sans archivage), mais les attributs (tels que premissions, gid et uid) ne sont pas pas traités.
-    	Les permissions sont forcées : Lecture ecriture et recherche pour l'utilisateur.
-    	Cette fonction est purement optionnelle et en bêta.
-    	./ptar -z manpage/ptar.1.gz
-
-
 ###Page de manuel ptar(1)
 
 	Lire la page de manuel de ptar sans manipulations/droits super-utilisateurs au préalable

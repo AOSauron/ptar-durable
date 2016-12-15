@@ -19,3 +19,8 @@ rm *~
 rm archives_test/*~
 
 rm *.fifo
+
+#Supprime l'output de countThreads.sh
+rm trace
+
+rm -rf modules/
