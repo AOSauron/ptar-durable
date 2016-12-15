@@ -71,6 +71,11 @@ void *traitement(char *folder) {
 	Traitement de chaque header les uns après les autres
 	*/
 
+	if (thrd==1) {
+		printf("15 secondes avant lancement des threads\n");
+		sleep(15);
+	}
+
 	do {
 
 		//On lock le mutex pour protéger la ressource avant lecture. Lit donc un élément et traite dessus : lit aussi les potentielles données suivant le header.

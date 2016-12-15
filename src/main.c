@@ -146,6 +146,9 @@ int main(int argc, char *argv[]) {
 		//Tableau des pthread_t
 		tabthrd=malloc(nthreads*sizeof(pthread_t));
 
+		printf("15 secondes avant création des threads, préparez la commande \" ps -T - C \" dans un autre terminal.\n");
+		sleep(15);
+
 		//Lancement de chaque threads.
 		for (j=0; j<nthreads; j++) {
 			status=pthread_create(&tabthrd[j], NULL, (void *)traitement, argv[optind]);
