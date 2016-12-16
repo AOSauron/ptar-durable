@@ -70,10 +70,17 @@
 
 \hspace{0.5cm}Pour ce qui est de l'extraction, nous avons créer une fonction \[int\hspace{0.2cm}extraction(headerTar\hspace{0.1cm}*header,\hspace{0.2cm}char\hspace{0.1cm}*data)\] où \textit{data} sont les données éventuelles suivant le \textit{header} récupérées à l'aide d'un appel à \textit{read()} à la place de \textit{lseek()}. La différenciation d'éléments se faisait sur le champ \textit{typeflag} du \textit{header} à l'aide d'un \textit{switch...case} sur le premier caractère de ce champ. Pour extraire, nous avons utilisé diverses fonctions telles que \textit{open()}, \textit{write()}, \textit{mkdir()} et \textit{simlink()}. Il fallait faire attention à passer \textit{size} converti non ramené au multiple de 512 calculé dans la boucle principale en argument au \textit{write()} éventuel.
 
-\section*{\hspace{0.6cm}1.4\hspace{0.6cm}Étapes 4 : Listing détaillé et application des attributs à l'extraction}
+\section*{\hspace{0.6cm}1.4\hspace{0.6cm}Étape 4 : Listing détaillé et application des attributs à l'extraction}
 \hspace{1cm}Nous avons crée une fonction \textit{listing()} qui prend en argument un \textit{header}. Cette fonction affiche les informations comme le ferait la commande \textit{ls -l}. Nous n'avons pas eu de problème particulier grâce à la fonction \textit{strtol()} citée précédement, excepté dans le cas d'un lien symbolique pointant sur un élément dont le nom est un nombre qui produisait un faux \textit{typeflag}. L'erreur venait du fait qu'on ne prenait pas le premier caractère du champ \textit{typeflag} mais toute la chaîne qui parfois se concaténait avec le champ \textit{linkname} qui contenait dans ce cas un nombre.\\
 
-\hspace{0.5cm}Pour l'application des attributs aux éléments pendant l'extraction, nous avons utilisé \textit{strtol()}, \textit{setuid()}, \textit{setgid()}, \textit{chmod()}, \textit{utimes()} et \textit{lutimes()} pour les liens symboliques. Cependant, nous nous sommes apperçu qu'il fallait changer la date de modification des dossiers en fin de traîtement car le fait de créer un fichier à l'intérieur de ce même dossier met à jour la date de modification de ce dernier.
+\hspace{0.5cm}Pour l'application des attributs aux éléments pendant l'extraction, nous avons utilisé \textit{strtol()}, \textit{setuid()}, \textit{setgid()}, \textit{chmod()}, \textit{utimes()} et \textit{lutimes()} pour les liens symboliques. Cependant, nous nous sommes apperçu qu'il fallait changer la date de modification des dossiers en fin de traîtement car le fait de créer un fichier à l'intérieur de ce même dossier met à jour la date de modification de ce dernier.\\
+
+\hspace{0.5cm}Nous avons choisi de créer une option \textit{-e} pour dévelopeur visant à créer un \textit{logfile} des divers appels systèmes et fonctions utilisées dans le programme. Cela nous a été fortement utile pour déboguer le programme par la suite. Une information a été ajoutée à la page de manuel à cette occasion.
+
+\section*{\hspace{0.6cm}1.5\hspace{0.6cm}Étape 6 : Changement dynamique et décompression}
+\hspace{1cm}En ce qui concerne le changement dynamique de la \textit{zlib} avec \textit{dlopen} de \textit{dlfcn.h}, nous avons rapidement trouvé la marche à suivre dans le cours. Nous avons donc chargé les cinq fonctions homologues à \textit{open()}, \textit{read()}, \textit{lseek()} et \textit{close()} de la \textit{zlib}. Au début, nous avions tenté de charger la \textit{zlib} téléchargée localement avant de nous rendre compte qu'il suffisait de ne pas spécifier de chemin en argument de \textit{dlopen()} pour que celle-ci cherche automatiquement dans le système grâce à la variable d'environnement \textit{LD\_LIBREARY\_PATH}.\\
+
+\hspace{0.5cm}
 
 
 \end{document}
