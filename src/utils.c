@@ -37,7 +37,7 @@ Fonction principale : recueille les header de chaque fichier dans l'archive (com
 Appelle ensuite les diverses fonctions utiles au traitement souhaité.
 */
 
-void *traitement(char *folder) {
+void *traitement(void *arg) {
 
 	/*
 	Déclarations et initialisation des variables
@@ -49,10 +49,10 @@ void *traitement(char *folder) {
 	char *data; 		   								//Buffer pour les données suivant le header.
 	char dirlist[MAXDIR][PATHLENGTH];	//Liste des dossiers. La taille du chemin d'accès est limitée à 255 octets, contenance max : 2048 dossiers.
 	char typeflag;										//Le type de fichier : '0' = fichier, '2' = lien symbolique, '5' = dossier.
-	char ssize[12];										//Champ size avec \0 forcé.
-	char sustar[6];										//Champ magic avec \0 forcé.
-	char smtime[12];									//Champ mtime avec \0 forcé.
-	char sname[100];									//Champ name avec \0 forcé
+	char ssize[13];										//Champ size avec \0 forcé.
+	char sustar[7];										//Champ magic avec \0 forcé.
+	char smtime[13];									//Champ mtime avec \0 forcé.
+	char sname[101];									//Champ name avec \0 forcé
 
 	int mtimes[MAXDIR];								//Liste des mtime, associé au premier tableau (dans l'ordre).
 	int status;												//Valeur de retour des read() successifs dans la boucle principale : 0 <=> EOF, -1 <=> erreur.
@@ -67,6 +67,8 @@ void *traitement(char *folder) {
 	nbdir=0;
 	size_reelle=0;
 
+	(void) arg;												//On fait taire le warning unused
+
 	/*
 	Traitement de chaque header les uns après les autres
 	*/
@@ -79,10 +81,7 @@ void *traitement(char *folder) {
 		//Si l'End Of File ou un checksum est invalide, stop immédiatemment l'éxécution des autres threads.
 		if (isEOF==true) {
 			pthread_mutex_unlock(&MutexRead);
-			if (thrd==1) {
-				pthread_exit((int *) NULL);
-			}
-			else break;
+			break;
 		}
 
 		//On lit (read) un premier bloc (header) de 512 octets qu'on met dans une variable du type de la structure header_posix_ustar définie dans header.h (norme POSIX.1)
@@ -105,12 +104,16 @@ void *traitement(char *folder) {
 			else {
 				(*gzClose)(filez);
 			}
+
+			//Fermeture de zlib dynaique.
+			if (decomp==1 && handle != NULL) dlclose(handle);
+
 			exit(EXIT_FAILURE);
 		}
 
 		//Parsing correct du champ name en forçant la terminaison par \0
 		strncpy(sname, head.name, sizeof(head.name));
-		strcat(sname,"\0");
+		sname[101]='\0';
 
 		/* La fin d'une archive tar se termine par 2 enregistrements d'octets valant 0x0. (voir tar(5))
 		Donc la string head.name du premier des 2 enregistrement est forcément vide.
@@ -126,10 +129,10 @@ void *traitement(char *folder) {
 		//Cas où le fichier passé en paramètre n'est pas une archive tar POSIX ustar : vérification avec le champ magic du premier header.
 		//Si le premier header est validé, alors l'archive est conforme et ce test ne devrait pas être infirmé quelque soient les header suivant, par construction.
 		strncpy(sustar, head.magic, sizeof(head.magic));
-		strcat(sustar,"\0");
+		sustar[7]='\0';
 
 		if (strcmp("ustar", sustar)!=0 && strcmp("ustar  ", sustar)!=0 && strcmp("ustar ", sustar)!=0) {
-			printf("Le fichier %s ne semble pas être une archive POSIX ustar.\n", folder);
+			printf("Le fichier passé en paramètre ne semble pas être une archive POSIX ustar.\n");
 			if (logflag==1) fclose(logfile);
 			if (decomp==0) {
 				close(file);
@@ -137,6 +140,10 @@ void *traitement(char *folder) {
 			else {
 				(*gzClose)(filez);
 			}
+
+			//Fermeture de zlib dynaique.
+			if (decomp==1 && handle != NULL) dlclose(handle);
+
 			exit(EXIT_FAILURE);
 		}
 
@@ -146,7 +153,7 @@ void *traitement(char *folder) {
 
 		//On récupère la taille (head.size) des données suivant le header. La variable head.size est une string, contenant la taille donnée en octal, convertit en décimal.
 		strncpy(ssize, head.size, sizeof(head.size));
-		strcat(ssize,"\0");
+		ssize[13]='\0';
 		size=strtol(ssize, NULL, 8);
 
 		// (2) Si des données non vides suivent le header (en pratique : si il s'agit d'un header fichier non vide), on passe ces données sans les afficher:
@@ -194,6 +201,10 @@ void *traitement(char *folder) {
 				else {
 					(*gzClose)(filez);
 				}
+
+				//Fermeture de zlib dynaique.
+				if (decomp==1 && handle != NULL) dlclose(handle);
+
 				exit(EXIT_FAILURE);
 			}
 		}
@@ -242,10 +253,7 @@ void *traitement(char *folder) {
 
 			//Si l'End Of File ou un checksum est invalide, stop immédiatemment l'éxécution des autres threads.
 			if (isEOF==true) {
-				if (thrd==1) {
-					pthread_exit((int *) NULL);
-				}
-				else break;
+ 				break;
 			}
 		}
 
@@ -272,7 +280,7 @@ void *traitement(char *folder) {
 
 					//RCopie de mtime
 					strncpy(smtime, head.mtime, sizeof(head.mtime));
-					strcat(smtime,"\0");
+					smtime[13]='\0';
 					mtime=strtol(head.mtime, NULL, 8);
 
 					//Récupération à proprement parler.
@@ -304,17 +312,14 @@ void *traitement(char *folder) {
 		}
 	}
 
-	//Si l'archive est corrompu, ptar doit renvoyer 1
-	if (corrupted==true) {
-		printf("ptar : arrêt avec somme de contrôle invalide d'un des élément de l'archive.\n");
-		exit(EXIT_FAILURE);
-	}
-
 	//Sinon normalement tout s'est bien passé, on return ou thrd_exit selon les options.
 	else {
 		if (thrd==0) return NULL;
 		else pthread_exit((int *) NULL);
 	}
+
+	//Pour taire le warning return of non-void func
+	return NULL;
 }
 
 
@@ -351,12 +356,12 @@ int listing(headerTar head) {
 	struct tm ts;
 	char bmtime[80];
 	char typeflag;
-	char ssize[12];
-	char suid[8];
-	char sgid[8];
-	char smode[8];
-	char smtime[12];
-	char sname[100];
+	char ssize[13];
+	char suid[9];
+	char sgid[9];
+	char smode[9];
+	char smtime[13];
+	char sname[101];
 
 	int size;
 	int mode;
@@ -370,12 +375,12 @@ int listing(headerTar head) {
 	strncpy(smode, head.mode, sizeof(head.mode));
 	strncpy(smtime, head.mtime, sizeof(head.mtime));
 	strncpy(sname, head.name, sizeof(head.name));
-	strcat(ssize,"\0");
-	strcat(suid,"\0");
-	strcat(sgid,"\0");
-	strcat(smode,"\0");
-	strcat(smtime,"\0");
-	strcat(sname,"\0");
+	ssize[13]='\0';
+	suid[9]='\0';
+	sgid[9]='\0';
+	smode[9]='\0';
+	smtime[13]='\0';
+	sname[101]='\0';
 
 	//Récupération de la taille (comme dans le main)
 	size=strtol(ssize, NULL, 8);
@@ -428,13 +433,13 @@ int extraction(headerTar *head, char *namex, char *data) {
 	struct timeval *tv;
 	char *name;
 	char typeflag;
-	char ssize[12];
-	char suid[8];
-	char sgid[8];
-	char smode[8];
-	char smtime[12];
-	char sname[100];
-	char slink[100];
+	char ssize[13];
+	char suid[9];
+	char sgid[9];
+	char smode[9];
+	char smtime[13];
+	char sname[101];
+	char slink[101];
 
 	int mode;
 	int size;
@@ -470,13 +475,13 @@ int extraction(headerTar *head, char *namex, char *data) {
 	strncpy(smtime, head->mtime, sizeof(head->mtime));
 	strncpy(sname, head->name, sizeof(head->name));
 	strncpy(slink, head->linkname, sizeof(head->linkname));
-	strcat(ssize,"\0");
-	strcat(suid,"\0");
-	strcat(sgid,"\0");
-	strcat(smode,"\0");
-	strcat(smtime,"\0");
-	strcat(sname,"\0");
-	strcat(slink,"\0");
+	ssize[13]='\0';
+	suid[9]='\0';
+	sgid[9]='\0';
+	smode[9]='\0';
+	smtime[13]='\0';
+	sname[101]='\0';
+	slink[101]='\0';
 
 	//Récupération du name
 	if (namex!=NULL) {
@@ -639,14 +644,14 @@ bool checksum(headerTar *head) {
 	unsigned int chksum;
 	unsigned int chksumtotest;
 	char *pHeader;
-	char schecksum[8];
+	char schecksum[9];
 
 	chksum=0;
 	chksumtotest=0;
 
 	//Parsing correct de la terminaison par \0
 	strncpy(schecksum, head->checksum, sizeof(head->checksum));
-	strcat(schecksum, "\0");
+	schecksum[9]='\0';
 
 	//On récupère le champs checksum du header, il est en octal ASCII.
 	chksumtotest = strtol(schecksum, NULL, 8);
