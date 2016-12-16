@@ -13,6 +13,7 @@
 \usepackage{relsize}
 \usepackage{titlepic}
 \usepackage{times}
+\usepackage{url}
 
 
 
@@ -33,15 +34,13 @@
 \maketitle
 
 
-%page manu
-%listeur basique
-%étapes 2 et 3 : ligns de cmd ac option -x
-%étape 4 : listing détaillé + application des attributs à l'extraction
-%étape 6 : chgmt dyn et décompr
-%étape 7 : checksum
-%étape 5 : parallélisation, durabilité
-
 \chapter*{Remerciements}
+
+\hspace{1cm}Nous avons réaliser ce projet en nous aidant des sites web mentionnés dans la section Bibliographie, avant l'annexe. Avec ces sites nous avons pu trouver des solutions à nos problèmes et des renseignements sur les fonctions standards et appels systèmes en C et comment les utiliser. Nous avons également trouver des renseignements sur la zlib et toute sa documentation (qui était suffisante) sur \textit{zlib.net}.\\
+
+\hspace{0.5cm}Nous tenions également à remercier Alexandre Chichmanian (également élève en deuxième année) avec qui nous avons souvent discuté de nos problèmes respectifs et parfois communs, et des stratégies à employer pour les résoudre. Discuter avec quelqu'un d'extérieur au binôme nous a permis de prendre du recul sur ce que nous avions fait et de nous rendre compte de certaines erreurs aberrantes que nous n'avions pas remarquées.\\
+
+\hspace{0.5cm}Enfin, nous tenions à remercier M. Lucas Nussbaum pour nous avoir offert la possibilité de tester notre programme régulièrement sur des archives spécialement conçues pour les test, ce qui nous a grandement aidé dans les phases de débogage. Nous avons pû nous inspirer de ces archives pour créer les nôtres et mettre ne place nos propres tests (cf $archives\verb|_|test/vice.tar$ dans le dépôt github).
 
 
 \chapter*{1\hspace{1cm}Conception}
@@ -73,14 +72,170 @@
 \section*{\hspace{0.6cm}1.4\hspace{0.6cm}Étape 4 : Listing détaillé et application des attributs à l'extraction}
 \hspace{1cm}Nous avons crée une fonction \textit{listing()} qui prend en argument un \textit{header}. Cette fonction affiche les informations comme le ferait la commande \textit{ls -l}. Nous n'avons pas eu de problème particulier grâce à la fonction \textit{strtol()} citée précédement, excepté dans le cas d'un lien symbolique pointant sur un élément dont le nom est un nombre qui produisait un faux \textit{typeflag}. L'erreur venait du fait qu'on ne prenait pas le premier caractère du champ \textit{typeflag} mais toute la chaîne qui parfois se concaténait avec le champ \textit{linkname} qui contenait dans ce cas un nombre.\\
 
-\hspace{0.5cm}Pour l'application des attributs aux éléments pendant l'extraction, nous avons utilisé \textit{strtol()}, \textit{setuid()}, \textit{setgid()}, \textit{chmod()}, \textit{utimes()} et \textit{lutimes()} pour les liens symboliques. Cependant, nous nous sommes apperçu qu'il fallait changer la date de modification des dossiers en fin de traîtement car le fait de créer un fichier à l'intérieur de ce même dossier met à jour la date de modification de ce dernier.\\
+\hspace{0.5cm}Pour l'application des attributs aux éléments pendant l'extraction, nous avons utilisé \textit{strtol()}, \textit{setuid()}, \textit{setgid()}, \textit{chmod()}, \textit{utimes()} et \textit{lutimes()} pour les liens symboliques. Cependant, nous nous sommes apperçu qu'il fallait changer la date de modification des dossiers en fin de traîtement car le fait de créer un fichier à l'intérieur de ce même dossier met à jour la date de modification de ce dernier. Pour cela nous stockons les noms de dossiers dans un tableau de string (char[2048][255]) et les champs mtime converti en int dans un tableau d'int (int[]). Nous avons choisi par convention de considérer qu'une archive tar ne peut excéder 2048 dossiers différents. \\
 
-\hspace{0.5cm}Nous avons choisi de créer une option \textit{-e} pour dévelopeur visant à créer un \textit{logfile} des divers appels systèmes et fonctions utilisées dans le programme. Cela nous a été fortement utile pour déboguer le programme par la suite. Une information a été ajoutée à la page de manuel à cette occasion.
+\hspace{0.5cm}Nous avons choisi de créer une option \textit{-e} pour dévelopeur visant à créer un \textit{logfile} des divers appels systèmes et fonctions utilisées dans le programme. Cela nous a été fortement utile pour déboguer le programme par la suite. Une information a été ajoutée à la page de manuel à cette occasion (cette fonction est désactivée lors de l'extraction dans le cas d'un multithreading).
 
-\section*{\hspace{0.6cm}1.5\hspace{0.6cm}Étape 6 : Changement dynamique et décompression}
-\hspace{1cm}En ce qui concerne le changement dynamique de la \textit{zlib} avec \textit{dlopen} de \textit{dlfcn.h}, nous avons rapidement trouvé la marche à suivre dans le cours. Nous avons donc chargé les cinq fonctions homologues à \textit{open()}, \textit{read()}, \textit{lseek()} et \textit{close()} de la \textit{zlib}. Au début, nous avions tenté de charger la \textit{zlib} téléchargée localement avant de nous rendre compte qu'il suffisait de ne pas spécifier de chemin en argument de \textit{dlopen()} pour que celle-ci cherche automatiquement dans le système grâce à la variable d'environnement \textit{LD\_LIBREARY\_PATH}.\\
+\section*{\hspace{0.6cm}1.5\hspace{0.6cm}Étape 6 : Changement dynamique, décompression et archives désordonnées}
+\hspace{1cm}En ce qui concerne le changement dynamique de la \textit{zlib} avec \textit{dlopen} de \textit{dlfcn.h}, nous avons rapidement trouvé la marche à suivre dans le cours. Nous avons donc chargé les cinq fonctions homologues à \textit{open()}, \textit{read()}, \textit{lseek()} et \textit{close()} de la \textit{zlib}. Au début, nous avions tenté de charger la \textit{zlib} téléchargée localement avant de nous rendre compte qu'il suffisait de ne pas spécifier de chemin en argument de \textit{dlopen()} pour que celle-ci cherche automatiquement dans le système grâce à la variable d'environnement \textit{LD\_LIBREARY\_PATH}. Une fonction permet de charger la bibliothèque dynamique avec un \textit{void *handle} globale et c'est la fonction \textit{main} qui appelle \textit{dlcose()} sur \textit{handle}. Les fonctions sont aussi déclarées globalement dans \textit{utils.h}\\
 
-\hspace{0.5cm}
+\hspace{0.5cm}Notre première stratégie, abandonnée par la suite, consistait à décompresser l'archive \textit{tar.gz} dans un fichier temporaire en lui donnant un nom quelconque (pour éviter d'écraser un fichier portant potentiellement le même nom) à l'aide des fonctions de la \textit{zlib}. Il suffisait de lire ensuite le fichier dans la fonction principale comme s'il s'agissait d'un tar normal. Cette solution peut élégante et "bricolée" ne nous a pas satisfaits. Nous avons eu l'idée par la suite de passer par un tube nommé en \textit{forkant} (avec l'appel système \textit{fork()}) notre processus, l'un écrivait dans le tube puis se tuait tandis que le principal lisait la sortie du tube (en attendant la mort du fils). Cette solution nous semblait plus adaptée au attentes du module de RS. Cependant, il s'avère que la taille maximale d'un tube sur notre système d'exploitation (Ubuntu) est de 64 Ko, et comme on était obligé de décompresser totalement avant d'y lire, la taille maximale d'une archive compressée pouvant être lue par \textit{ptar} était de 64 Ko. 
+A ce point, deux solution s'offrait à nous : soit nous retournions à l'idée de départ, soit nous procédions directement à la différenciation de \textit{open}/\textit{gzopen}, \textit{read}/\textit{gzread}, \textit{close}/\textit{gzclose}, dans le corps principal du programme en vérifiant à chaque fois si l'option -z était spécifiée. Nous avons donc choisi la deuxième option, beaucoup plus élégante et efficace en mémoire et vitesse d'exécution. Il a fallu passer un certain nombre de variables locales en variables globales (voir \textit{utils.h}), et donc coder avec prudence. Avec cette solution, il est donc possible de décompresser en même temps d'extraire/lister.\\
 
+\hspace{0.5cm}C'est à partir de cette étape que nous avons été confrontés à un problème de taille : les archives désordonnées. Il s'agit d'archives dont, par exemple, le \textit{header} d'un fichier contenu dans un dossier pouvait arriver avant celui du dossier en question, et donc il était impossible de créer le fichier. Bien que M. Nussbaum nous ait assuré que ce cas ne se produirait pas dans les tests blancs, nous avons tout de même voulu résoudre ce problème, notamment parce que nombre de nos archives de test étaient désordonnées.\\
+
+\hspace{0.5cm}Notre première idée, très grossière, gourmande en mémoire et peu efficace à l'exécution, consistait à d'abord lire l'archive et de ranger les \textit{header} dans des structures spéciales créées pour l'occasion. Ces structures sont des tableaux de \textit{header}, de \textit{char}, et des \textit{int} (voir \textit{sorting.h} en annexe, ce code ne fait plus parti du code source). Il s'agissait ensuite de trier ces \textit{header} et les données éventuelles suivant ce \textit{header} (à côté mais dans la même structure), à l'aide de diverses fonctions et de notamment un tri à bulle simple. Cette stratégie a été un enfer à déboguer tant nous avions de problèmes à ce niveau : beaucoup de \textit{core dump} étaient dénombrés dans nos tests dûs à de nombreux \textit{malloc}/\textit{free} hasardeux. Le tri se faisait sur la profondeur de l'élément dans l'archive en comptant le nombre de token séparés par le délimiteur '/'. Nous avons utilisé \[char\hspace{0.2cm}*strtok(char\hspace{0.1cm}*string,\hspace{0.2cm}const\hspace{0.1cm}char\hspace{0.1cm}*delim)\] de \textit{string.h} pour cela (et pour la fonction \textit{bool checkfile(char *file)} de \textit{checkfile.h} également, mais avec le délimiteur '.').\\
+
+\hspace{0.5cm}Nous avons fini par abandonner cette idée pour une bien meilleure : vérifier l'existence des dossiers parents grâce à des fonctions conçues pour l'occasion dans \textit{checkfile.h}. Les deux premières fonctions, \textit{bool existeDir(char *dir)} et \textit{bool existeFile(char *file)} testent tout simplement l'existence d'un dossier ou d'un fichier. On en a besoin par la suite dans \textit{extraction()} de \textit{utils.h} et dans \textit{int checkpath(char *file)} de \textit{checkfile.h}. Dans cette dernière on utilise encore \textit{strtok()} avec le délimiteur '/' en conjonction de \textit{strcat()} en bouclant et en s'assurant à chaque boucle de l'existence du dossier dont le nom est constitué au moment de la boucle, si il n'existe pas on le créer avec \textit{mkdir()} de \textit{sys/stat.h} avec des droits drwxrwxr-x, qui sont temporaires puisque le header de ce même dossier va être lu plus tard par \textit{ptar} et mettras à jour ses droits avec ses bonnes permissions. Ensuite on passe au dossier fils, et ainsi de suite jusqu'à arriver à l'élément pointé par le \textit{header}. Sa création n'est plus un problème puisque son chemin de dossiers parents existe forcément (sauf si il y a eu une erreur, causée sans aucun doute par une problème de droits de création de dossier). Pour finir, la fonction \textit{char *recoverpath(char *linkname, char *pathlink, char pathname[])} de \textit{checkfile.h} était utilisée pour recréer un chemin complet relatif depuis l'endroit d'exécution de \textit{ptar} pour les pathname des éléments pointés par un lien symboliques afin de les créer avant de leur appliquer \textit{symlink()}. Cela créait des désagrément, il n'est en fait pas nécessaire de créer l'élément avant d'appeller \textit{symlink()}. Cette fonction n'est donc plus utilisée puisqu'on ne teste plus l'existence de l'élément pointé par le lien.
+
+\section*{\hspace{0.6cm}1.5\hspace{0.6cm}Étape 7 : Checksum et header Pax tar, UTF-8}
+
+\hspace{0.5cm}Cette étape fut plutôt facile à réaliser à condition d'être rigoureux. Nous avons donc créé une fonction \textit{bool checksum(headerTar *head)} qui se charge de calculer le \textit{checksum} du \textit{header} et de le comparer au champs \textit{checksum} du \textit{header}. Elle renvoie vrai si l'archive est corrompue, faux sinon. Cette fonction est appelée pour chaque header. Si l'un des header est corrompu, un booléen global (global pour la compatibilité avec les threads) est mis à vrai ; cela permet de continuer d'exécuter ptar sur le reste de l'archive, et de renvoyer 1 à la fin. Seuls les éléments sains sont extraits.\\
+
+\hspace{0.5cm}Nous avons utilisé l'algorithme de calcul spécifié dans tar(5), à savoir une sommation de chaque byte du header en remplaçant les 8 bytes du champ \textit{checksum} du header par 8 espaces de valeurs ASCII 32 en décimal. Nous avons ensuite pratiqué un masque 0x3FFFF (à l'aide d'un ET bit-à-bit) sur cette somme d'\textit{unsigned int} pour ne récupérer que les 18 bits de poids faibles comme indiqués dans tar(5).\\
+
+\hspace{0.5cm}Par soucis de compatibilité avec l'UTF-8, nous avons pris en compte que des éléments portant des caractères spéciaux propres à l'UTF-8 (comme des accents) dans leur nom générait un header supplémentaire de type Pax (POSIX 2008), et comme ce genre de header possède un typleflag particulier ('x' ou 'g'), il est aisé de les ignorer (nous omettons volontairement les informations potentiellement utiles qu'il contiennent, puisque ce n'est pas testé dans les tests blancs). Cependant, les noms accentués provoquaient une sortie anormal de \textit{ptar} avec une erreur indiquant une archive corrumpue. En fait, les caractères accentués ont une valeur hexadécimale de la forme 'ffffffc3' pour 'é' dans notre \textit{header} (codés probablement comme des \textit{signed int}). Seuls la partie 'c3' (dans cet exemple) nous intéressait, nous avons donc appliqué un second masque 0xFF sur chaque octet du header pour ne récupérer que les 8 bits de poids faible. Cela a résolu nos sorties anormales.
+
+\section*{\hspace{0.6cm}1.5\hspace{0.6cm}Étape 5 : Durabilité, parallélisation et derniers débug}
+
+\hspace{0.5cm}Nous avons gardé l'étape 5 pour la fin, car elle nous semblait être la plus compliquée. En réalité, bien qu'il a fallu être très prudent durant la conception de cette étape à cause du \textit{multithreading}, cette étape a été plus rapide à réaliser que l'étape 6, qui nous a longuement posée problème. Il a fallu tout de même ingérer toute une documention sur les threads POSIX.\\
+
+\hspace{0.5cm}Pour rendre le code compatible avec les threads, nous avons dû changer la fonction principale traitement() de utils.h sur plusieurs point, et également passer quelques variables locales en variables globales, notamment le descripteur de fichier$/$gzFile du open()$/$gzopen() de l'archive, le \textit{FILE * logfile}, un mutex pour la lecture et 3 booléen d'état de corruption et d'\textit{End Of File}. Il a fallut changer le protoype de base de traitement en \textit{void *traitement(void *arg)} comme conseillé dans la documentation sur les threads POSIX. La création et le kill ($pthread\verb|_|join$) des threads dans le programme ne fut pas difficile à implémenter, il a fallu cependant protéger en lecture/écriture nos variables globales ! Sinon chaque thread peut à sa guise lire dans l'archive et la tête de lecture serait déplacée de façon incontrolable et imprévisible. \\
+
+\hspace{0.5cm}Pour cela, nous avous avons utilisé des $pthread\verb|_|mutex$, un pour les $read()/lseek()\\
+/gzread()/gzseek()$ dans l'archive une fois ouverte, et un pour l'ecriture des éléments. En fait, nous avons réalisé plus tard, à l'issu du dernier test blanc, que le mutex d'écriture était complètement inutile et explosait littéralement le temps d'exécution du programme en multithread, alors que le temps d'exécution devait être un peu plus faible qu'un séquentiel. C'est à partir de ce moment qu'il a fallut être très prudent dans l'implémentation des mutex. Après quelques core dump nous avons fini par faire une release très stable et rapide en exécution du programme (version 1.7.5).\\
+
+\hspace{0.5cm}Tests d'exécution sur une archive compressée gzip pesant 3,9Mo :
+
+\hspace{1.0cm}Sans threads :
+
+\hspace{1.5cm}	real	0m0.304s
+
+\hspace{1.5cm}	user	0m0.133s
+
+\hspace{1.5cm}	sys	0m0.131s
+\\
+\\
+
+\hspace{1.cm}Avec 8 threads :
+
+\hspace{1.5cm}	real	0m0.356s
+
+\hspace{1.5cm}	user	0m0.147s
+
+\hspace{1.5cm}	sys	0m0.284s
+\\
+\hspace{0.5cm}Le débogage du programme étant une partie important du projet, nous avons créé toute une floppée d'archives différentes pour stresser et roder notre programme. Parmis l'une d'elles, l'archive vice.tar et son homologue compressée en gzip vice.tar.gz, présente dans le dossier archives\verb|_|test du dépôt github, ont été particulièrement meurtières mais redoutablement efficaces pour pointer les problèmes de notre code.\\
+
+\hspace{0.5cm}Les diverses méthodes de débogage sont listées dans la partie Debug du README.
+
+\chapter*{2\hspace{1cm}Répartition du travaill effectué}
+
+\begin{tabular}{|l|c|c|c|r|}
+  \hline
+  &Conception & Codage & Tests et débug & Rapport \\
+  \hline
+  GARCIA & 25h & 12h & 18h & 2h\\
+  ZAMBAUX & 20h & 8h & 25h & 3h\\
+  \hline
+\end{tabular}
+
+
+\chapter*{3\hspace{1cm}Bibliographie}
+
+
+\hspace{0.6cm}\url{https://www.freebsd.org/cgi/man.cgi?query=tar&sektion=5}
+
+\url{http://homepages.loria.fr/nussbaum/RS/}
+
+\url{https://openclassrooms.com/}
+
+\url{https://linux.die.net/}
+
+\url{http://stackoverflow.com/}
+
+\url{https://www.tutorialspoint.com/c_standard_library/}
+
+\url{https://www.freebsd.org/}
+
+\url{http://zlib.net/}
+
+\url{http://arche.univ-lorraine.fr/course/view.php?id=12478}
+
+\url{http://manpagesfr.free.fr/}
+
+
+\newpage
+
+\appendix
+
+\hspace{1.5cm} sorting.h
+
+\begin{verbatim}
+/*
+Fonctions de tri de header
+
+Utile seulement après la décompression.
+Liste et comptent chaque élément de chaque types.
+Sert à trier les éléments récupérés après la décompression, en effet ils sont désordonnés post-décompression.
+Il arrive alors que certains dossiers arrivent avant leur dossiers parents (qui ne sont pas encore créés) et donc il y a erreur.
+*/
+
+#ifndef INCLUDE_SORTING_H
+#define INCLUDE_SORTING_H
+
+
+/* Structure comprenant les 3 tableaux de header de chaque type (fichiers, dossiers, liens symboliques) et les données des fichiers */
+
+struct header_table {
+	headerTar *headDir;				//Tableau des header de dossiers.
+	headerTar *headFile;			//Tableau des header de fichiers.
+	headerTar *headSymlink;		//Tableau des header de liens symboliques.
+	char *datas;							//Tableau des données suivant le header (si fichier non vide).
+	int nbDir;								//Nombre de dossiers.
+	int nbFile;								//Nombre de fichiers.
+	int nbSymlink;						//Nombre de liens symboliques.
+};
+
+//On fait un alias de la structure.
+typedef struct header_table gzHeadertype;
+
+
+/*
+Analyseur d'archive : compte le nombre d'élément de chaque type contenu dans l'archive.
+Retourne une structure adaptée aux traitements.
+Le paramètre doit être le tube nommé créé après la décompression.
+L'ordre des données est le même que celui des fichiers.
+*/
+
+gzHeadertype analyse(const char *folder, FILE *logfile);
+
+
+/*
+Trieur : trie les éléments (les dossiers) avec un tri à bulle classique.
+Ne retourne rien vu la simplicité de la fonction.
+*/
+
+void tribulle(gzHeadertype composition);
+
+
+/*
+Compte le nombre de token séparés par le délimiteur passé en paramètre.
+Retourne ce nombre.
+*/
+
+int getnbtoken(char *name, const char *delim);
+
+
+/*
+Boucle sur les headers, dans le bon ordre, afin d'extraire/lister tous les éléments de façon satisfaisante.
+Retourne 0 si tout s'est bien passé, 1 si il y a eu au moins 1 erreur.
+*/
+
+int traitepostdecomp(gzHeadertype composition, FILE *logfile);
+
+
+#endif
+\end{verbatim}
 
 \end{document}
