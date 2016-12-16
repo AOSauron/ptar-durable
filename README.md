@@ -123,7 +123,7 @@ Utilisation de ptar
 
   Dernière Màj
 
-  	15/12/2016    23:54     version 1.7.5.0 : Version stable de ptar, vitesse d'éxecution améliorée.
+  	16/12/2016    14:00     version 1.7.5.1 : Version stable de ptar rapide, bugs mineurs corrigés. 
 
   Liste des corrections 1.7.0.0:
 
@@ -225,6 +225,11 @@ Liste des corrections 1.7.5.0:
         séquentiel, ce qui était l'objectif premier de ce programme !
       - Un autre problème dans le main a également été corrigé, tout n'était pas fermé dans le cas 'sans threads'. Cela devait
         sans doute causer d'éventuels bug ou problèmes sur certaines archives. (Notamment un core dump avec -e).
+
+Liste des corrections 1.7.5.1:
+
+      - Le code est amélioré : tous les éléments globaux sont désormais correctement fermés avant TOUTE sortie éventuelle de ptar.
+      - Le forcing de la terminaison par '\0' des champs du header se fait désormais correctement.
 
 
 

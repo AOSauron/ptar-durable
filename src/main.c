@@ -25,6 +25,7 @@ int main(int argc, char *argv[]) {
 	int opt;						//Valeur de retour de getopt().
 	pthread_t *tabthrd;	//Tableau des idf des threads;
 	void *ret;					//Structure pour le join final des threads.
+	void *arg;					//Argument pour la procédure traitement().
 
 	//Initialisation des flags des options de ligne de commande. Ce sont des variables globales dans utils.h
 	thrd=0;
@@ -36,6 +37,7 @@ int main(int argc, char *argv[]) {
 	isEOF=false;
 	isCorrupted=false;
 	corrupted=false;
+	arg=NULL;
 
 	//Faire taire ce warning unused
 	MutexRead=(pthread_mutex_t) MutexRead;
@@ -147,7 +149,7 @@ int main(int argc, char *argv[]) {
 
 		//Lancement de chaque threads.
 		for (j=0; j<nthreads; j++) {
-			status=pthread_create(&tabthrd[j], NULL, (void *)traitement, argv[optind]);
+			status=pthread_create(&tabthrd[j], NULL, (void *)traitement, arg);
 
 			//Si une erreur est provoquée lors de la création, on arrete les autres threads puis le programme.
 			if (status<0) {
@@ -170,7 +172,7 @@ int main(int argc, char *argv[]) {
 
 	//Si on ne veut pas utiliser de threads, on appelle tous simplement la procédure.
 	else {
-		traitement(argv[optind]);
+		traitement(arg);
 	}
 
 	//Fermeture de l'archive.
@@ -189,6 +191,12 @@ int main(int argc, char *argv[]) {
 		fclose(logfile);
 		fputs("Les sommes de contrôle (checksum) sont toutes valides.\n", logfile);
 		fputs("Fin de decompression/extraction.\n\n", logfile);
+	}
+
+	//Si l'archive est corrompu, ptar doit renvoyer 1
+	if (corrupted==true) {
+		printf("ptar : arrêt avec somme de contrôle invalide d'un des élément de l'archive.\n");
+		exit(EXIT_FAILURE);
 	}
 
 	return 0;

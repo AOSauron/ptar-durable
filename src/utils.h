@@ -94,7 +94,7 @@ Retourne 0 (EXIT_SUCCES) si tout s'est bien passé, 1 (EXIT_FAILURE) sinon : dan
 Retourne pthread_exit(int*) dans tous les cas sauf si corruption/erreur de read, qui renvoie EXIT_FAILURE : dans le cas multithreadé.
 */
 
-void *traitement(char *folder);
+void *traitement(void *arg);
 
 
 
