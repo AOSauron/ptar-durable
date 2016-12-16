@@ -226,6 +226,11 @@ Liste des corrections 1.7.5.0:
       - Un autre problème dans le main a également été corrigé, tout n'était pas fermé dans le cas 'sans threads'. Cela devait
         sans doute causer d'éventuels bug ou problèmes sur certaines archives. (Notamment un core dump avec -e).
 
+Liste des corrections 1.7.5.1:
+
+      - Le code est amélioré : tous les éléments globaux sont désormais correctement fermés avant TOUTE sortie éventuelle de ptar.
+      - Le forcing de la terminaison par '\0' des champs du header se fait désormais correctement.
+
 
 
 ###Debug
