@@ -123,7 +123,7 @@ Utilisation de ptar
 
   Dernière Màj
 
-  	15/12/2016    23:54     version 1.7.5.0 : Version stable de ptar, vitesse d'éxecution améliorée.
+  	16/12/2016    14:00     version 1.7.5.1 : Version stable de ptar rapide, bugs mineurs corrigés. 
 
   Liste des corrections 1.7.0.0:
 
