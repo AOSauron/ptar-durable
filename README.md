@@ -58,17 +58,19 @@ Utilisation de ptar
 
 	    Les exemples testf.tar.gz et testall.tar.gz sont les mêmes mais compressés au format gzip.
 
+      Les exemples vice.tar et vice.tar.gz sont prévues pour déboguer le programme en le stressant.
+
+      L'exemple bigarch.tar.gz est prévue pour tester le comportement de ptar sur une archive conséquente.
+
 	    ./ptar archives_test/testall.tar
 	    ./ptar -x archive_test/testall.tar
 	    ./ptar -l archive_test/testall.tar
 	    ./ptar -xl archive_test/testall.tar
-	    ./ptar -xe archive_test/testall.tar
 	    ./ptar -z archive_test/testall.tar
 	    ./ptar -xz archive_test/testall.tar.gz
 	    ./ptar -zxl archive_test/testall.tar.gz
 	    ./ptar -xlp 3 archive_test/testall.tar
 	    ./ptar -xzlp 4 archive_test/testall.tar.gz
-      ./ptar -lxzep 6 archive_test/testall.tar.gz
 
 	    Exécuter le script rmtest.sh avant chaque test sur les archives pour nettoyer le dossier courant.
 	    ./rmtest.sh
@@ -121,7 +123,7 @@ Utilisation de ptar
 
   Dernière Màj
 
-  	14/12/2016    23:29     version 1.7.4.0 : Version stable de ptar multithreadé distribuable
+  	15/12/2016    23:54     version 1.7.5.0 : Version stable de ptar, vitesse d'éxecution améliorée.
 
   Liste des corrections 1.7.0.0:
 
@@ -214,6 +216,16 @@ Liste des corrections 1.7.4.0:
       - Le code a subi un nouveau léger nettoyage avant le dernier test blanc bonus et le release final.
       - L'archive vicieuse (renommée pour l'occasion) a encore été améliorée en vu du rodage du programme.
 
+Liste des corrections 1.7.5.0:
+
+      - Une correction de bug mineur/majeur rapporté par l'ultime test blanc a été corrigé. En effet le temps d'éxecution lors d'un
+        multithreading était multiplié par 10 par rapport à une éxecution séquentielle. Ceci était dû à une mauvaise mutexation dans
+        le corps de traitement. De plus, l'écriture des élément 1 par 1 étaient mutéxée : c'était une erreur ! C'est ce qui causait
+        l'explosion du temps d'éxecution. Désormais le temps d'éxecution en mode threads est légèrement plus faible qu'en
+        séquentiel, ce qui était l'objectif premier de ce programme !
+      - Un autre problème dans le main a également été corrigé, tout n'était pas fermé dans le cas 'sans threads'. Cela devait
+        sans doute causer d'éventuels bug ou problèmes sur certaines archives. (Notamment un core dump avec -e).
+
 
 
 ###Debug
@@ -243,9 +255,13 @@ Liste des corrections 1.7.4.0:
 
       ./ptar -xzep 3 archive_test/testall.tar
 
-  Pour compter les threads utilisés dans le programme, lancer cette commande dans un terminal parallèle
+  Pour compter les threads utilisés dans le programme, lancer ce dans un terminal parallèle
 
-      ps -T -C ptar
+      ./countThreads
+
+  Pour compter le temps d'éxecution du programme, utiliser time
+
+      time ./ptar -lxzp 8 archive.tar.gz
 
   Pour bien charger la bibliotheque dynamique, il faut parfois bien set la variable d'environnement LD_LIBRARY_PATH
 

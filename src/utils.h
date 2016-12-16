@@ -53,8 +53,7 @@ bool corrupted;                                             //Se met à true et 
 
 FILE *logfile; 			                                        //Logfile pour l'option -e.
 
-static pthread_mutex_t MutexRead;                           //Mutex pour le read dans traitement().
-static pthread_mutex_t MutexWrite;                          //Mutex pour les actions sur disque (write, mkdir..) dans extraction().
+static pthread_mutex_t MutexRead;                           //Mutex pour le(s) read dans traitement().
 
 
 /*
