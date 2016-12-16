@@ -1,5 +1,5 @@
 //////////////////////////////////////////////////////////   ptar - Extracteur d'archives durable et parallèle  ///////////////////////////////////////////////////////////////////
-///////////////////////////////////////////////////////////////////////   v 1.7.4.0        14/12/2016   ///////////////////////////////////////////////////////////////////////////////////
+///////////////////////////////////////////////////////////////////////   v 1.7.5.0        15/12/2016   ///////////////////////////////////////////////////////////////////////////////////
 
 #include <stdio.h>
 #include <stdlib.h>
@@ -37,12 +37,11 @@ int main(int argc, char *argv[]) {
 	isCorrupted=false;
 	corrupted=false;
 
-	//Faire taire ces warning unused
+	//Faire taire ce warning unused
 	MutexRead=(pthread_mutex_t) MutexRead;
-	MutexWrite=(pthread_mutex_t) MutexWrite;
 
 	/*
-	Traitement des options de ligne de commande. Set des flag_s (var globales) d'options.
+	Traitement des options de ligne de commande. Set des flags (var globales) d'options.
 	*/
 
 	while ((opt=getopt(argc, argv, "xelzp:")) != -1) {
@@ -165,29 +164,31 @@ int main(int argc, char *argv[]) {
 			(void)pthread_join(tabthrd[j], &ret);
 		}
 
-		//Fermeture de l'archive.
-		if (decomp==0) {
-			close(file);
-		}
-		else {
-			(*gzClose)(filez);
-		}
-
-		//Fermeture propre du logfile.
-		if (logflag==1) {
-			fclose(logfile);
-		}
-
 		//Libération du pointeur sur les threads.
 		free(tabthrd);
-
-		//Fermeture de zlib dynaique.
-		if (decomp==1 && handle != NULL) dlclose(handle);
-
 	}
+
 	//Si on ne veut pas utiliser de threads, on appelle tous simplement la procédure.
 	else {
 		traitement(argv[optind]);
+	}
+
+	//Fermeture de l'archive.
+	if (decomp==0) {
+		close(file);
+	}
+	else {
+		(*gzClose)(filez);
+	}
+
+	//Fermeture de zlib dynaique.
+	if (decomp==1 && handle != NULL) dlclose(handle);
+
+	//Fermeture propre du logfile.
+	if (logflag==1) {
+		fclose(logfile);
+		fputs("Les sommes de contrôle (checksum) sont toutes valides.\n", logfile);
+		fputs("Fin de decompression/extraction.\n\n", logfile);
 	}
 
 	return 0;

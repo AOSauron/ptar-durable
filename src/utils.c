@@ -259,9 +259,6 @@ void *traitement(char *folder) {
 			Traitement de l'extraction -x de l'élément lié au header
 			*/
 
-			//On bloque le mutex en écriture.
-			pthread_mutex_lock(&MutexRead);
-
 			if (extract==1) {
 
 				//Récupération du type d'élément.
@@ -273,7 +270,7 @@ void *traitement(char *folder) {
 					//On récupère le nom
 					strcpy(dirlist[nbdir], sname);
 
-					//Réalloc de mtimes
+					//RCopie de mtime
 					strncpy(smtime, head.mtime, sizeof(head.mtime));
 					strcat(smtime,"\0");
 					mtime=strtol(head.mtime, NULL, 8);
@@ -290,9 +287,6 @@ void *traitement(char *folder) {
 
 				if (logflag==1) fprintf(logfile, "Retour d'extraction de %s : %d\n", sname, extreturn);
 			}
-
-			//On débloque le mutex en écriture.
-			pthread_mutex_unlock(&MutexRead);
 		}
 	} while (isEOF==false);  //On aurait pu mettre while(1) puisque la boucle doit normalement se faire breaker plus haut.
 
@@ -309,17 +303,6 @@ void *traitement(char *folder) {
 			if (logflag==1) fprintf(logfile, "[Dossier %s] Code retour du utime : %d\n", dirlist[k], utim);
 		}
 	}
-
-	pthread_mutex_unlock(&MutexWrite);
-	//Fin du logfile (fermeture dans main)
-	if (logflag==1) {
-		if (corrupted==false) {
-			fputs("Les sommes de contrôle (checksum) sont toutes valides.\n", logfile);
-			fputs("Fin de decompression/extraction.\n\n", logfile);
-		}
-		else fputs("Une des sommes de contrôle n'est pas valide, arrêt de ptar...\n", logfile);
-	}
-	pthread_mutex_unlock(&MutexWrite);
 
 	//Si l'archive est corrompu, ptar doit renvoyer 1
 	if (corrupted==true) {
@@ -461,7 +444,7 @@ int extraction(headerTar *head, char *namex, char *data) {
 
 	//Code de retour des open/write/close/symlink/mkdir/setuid/setgid/utimes/lutimes - A lire dans logfile.txt
 	int etat;
-	int file;
+	int filed;
 	int writ;
 	int etatuid;
 	int etatgid;
@@ -470,7 +453,7 @@ int extraction(headerTar *head, char *namex, char *data) {
 	int chkpath;
 
 	//Nécessaire d'initialiser ces flags car pas initialisés dans tous les cas (et causent un 'faux' return -1 dans certains cas).
-	file=0;
+	filed=0;
 	writ=0;
 	sync=0;
 	utim=0;
@@ -523,10 +506,11 @@ int extraction(headerTar *head, char *namex, char *data) {
 	uid=strtol(suid, NULL, 8);
 	gid=strtol(sgid, NULL, 8);
 
+	/* INEFFICACE SI PAS DE DROIT ADMINISTRATEUR */
 	//On set l'uid et le gid du processus (cette instance d'extraction()) à ceux de l'élément à extraire. Voir setuid(3) et setgid(3).
 	etatuid=setuid(uid);
 	etatgid=setgid(gid);
-	if (logflag==1) fprintf(logfile, "[Element %s] Code retour du setuid : %d et du setgid : %d\n", name, etatuid, etatgid);
+	if (logflag==1 && thrd==0) fprintf(logfile, "[Element %s] Code retour du setuid : %d et du setgid : %d\n", name, etatuid, etatgid);
 
 	//Récupération des permissions du fichier en octal, converties en décimal.
 	mode=strtol(smode, NULL, 8);
@@ -542,26 +526,26 @@ int extraction(headerTar *head, char *namex, char *data) {
 			//Si le fichier existe on met à jour ses permissions.
 			if (existeFile(name)==true) {
 				etat=chmod(name, mode);
-				if (logflag==1) fprintf(logfile, "[Fichier %s] Code retour du chmod : %d\n", name, etat);
+				if (logflag==1 && thrd==0) fprintf(logfile, "[Fichier %s] Code retour du chmod : %d\n", name, etat);
 			}
 
 			//On vérifie si l'arborescence de dossiers existe et on la crée le cas échéant.
 			chkpath=checkpath(name);
-			if (logflag==1) fprintf(logfile, "[Fichier %s] Code retour du checkpath : %d\n", name, chkpath);
+			if (logflag==1 && thrd==0) fprintf(logfile, "[Fichier %s] Code retour du checkpath : %d\n", name, chkpath);
 
 			//open() avec O_CREAT pour créer le fichier et O_WRONLY pour pouvoir écrire dedans. O_EXCL pour détecerla préexistence.
-			file=open(name, O_CREAT | O_WRONLY, mode);
-			if (logflag==1) fprintf(logfile, "[Fichier %s] Code retour du open : %d\n", name, file);
+			filed=open(name, O_CREAT | O_WRONLY, mode);
+			if (logflag==1 && thrd==0) fprintf(logfile, "[Fichier %s] Code retour du open : %d\n", name, file);
 
 			//Ecriture : Voir la partie (2) de traitement(): récupération de données. Il faut utiliser size et pas size_reelle cette fois-ci
 			if (size > 0) {  //Ecriture si seulement le fichier n'est pas vide !
-				writ=write(file, data, size);
-				if (logflag==1) fprintf(logfile, "[Fichier %s] Code retour du write : %d\n", name, writ);
+				writ=write(filed, data, size);
+				if (logflag==1 && thrd==0) fprintf(logfile, "[Fichier %s] Code retour du write : %d\n", name, writ);
 
 				//Durabilité de l'écriture sur disque si option -p
-				if (thrd==1) {
-					sync=fsync(file);
-					if (logflag==1) fprintf(logfile, "[Fichier %s] Code retour du fsync : %d\n", name, sync);
+				if (thrd==1 && thrd==0) {
+					sync=fsync(filed);
+					if (logflag==1 && thrd==0) fprintf(logfile, "[Fichier %s] Code retour du fsync : %d\n", name, sync);
 				}
 
 				//Libération de la mémoire allouée pour les données suivant le header.
@@ -569,12 +553,12 @@ int extraction(headerTar *head, char *namex, char *data) {
 			}
 
 			//Fermeture du fichier.
-			etat=close(file);
-			if (logflag==1) fprintf(logfile, "[Fichier %s] Code retour du close : %d\n", name, etat);
+			etat=close(filed);
+			if (logflag==1 && thrd==0) fprintf(logfile, "[Fichier %s] Code retour du close : %d\n", name, etat);
 
 			//Une fois le fichier créé complétement (et fermé!), on configure son modtime (et actime).
 			utim=utimes(name, tv);
-			if (logflag==1) fprintf(logfile, "[Fichier %s] Code retour du utime : %d\n", name, utim);
+			if (logflag==1 && thrd==0) fprintf(logfile, "[Fichier %s] Code retour du utime : %d\n", name, utim);
 
 			break;
 
@@ -584,15 +568,15 @@ int extraction(headerTar *head, char *namex, char *data) {
 
 			//On vérifie si l'arborescence de dossiers du lien existe et on la crée le cas échéant.
 			chkpath=checkpath(name);
-			if (logflag==1) fprintf(logfile, "[Lien symobolique %s] Code retour du checkpath : %d\n", name, chkpath);
+			if (logflag==1 && thrd==0) fprintf(logfile, "[Lien symobolique %s] Code retour du checkpath : %d\n", name, chkpath);
 
 			//On créé ensuite le lien symbolique
 			etat=symlink(slink, name);
-			if (logflag==1) fprintf(logfile, "[Lien symbolique %s] Code retour du symlink : %d\n", name, etat);
+			if (logflag==1 && thrd==0) fprintf(logfile, "[Lien symbolique %s] Code retour du symlink : %d\n", name, etat);
 
 			//On utilise lutimes car utime ne fonctionne pas sur les symlink : voir lutimes(3).
 			utim=lutimes(name, tv);
-			if (logflag==1) fprintf(logfile, "[Lien symbolique %s] Code retour du utime : %d\n", name, utim);
+			if (logflag==1 && thrd==0) fprintf(logfile, "[Lien symbolique %s] Code retour du utime : %d\n", name, utim);
 
 			break;
 
@@ -602,18 +586,18 @@ int extraction(headerTar *head, char *namex, char *data) {
 			if (existeDir(name)==true) {
 				//Si le dossier existe et qu'on a son header, on met à jour ses permissions.
 				etat=chmod(name, mode);
-				if (logflag==1) fprintf(logfile, "[Dossier %s] Code retour du chmod : %d\n", name, etat);
+				if (logflag==1 && thrd==0) fprintf(logfile, "[Dossier %s] Code retour du chmod : %d\n", name, etat);
 			}
 
 			//Le dossier n'existe pas :
 			else {
 				//On crée son arborescence de dossiers parente.
 				chkpath=checkpath(name);
-				if (logflag==1) fprintf(logfile, "[Dossier %s] Code retour du checkpath du dossier: %d\n", name, chkpath);
+				if (logflag==1 && thrd==0) fprintf(logfile, "[Dossier %s] Code retour du checkpath du dossier: %d\n", name, chkpath);
 
 				//Puis on crée le dossier concerné.
 				etat=mkdir(name, mode);
-				if (logflag==1) fprintf(logfile, "[Dossier %s] Code retour du mkdir : %d\n", name, etat);
+				if (logflag==1 && thrd==0) fprintf(logfile, "[Dossier %s] Code retour du mkdir : %d\n", name, etat);
 			}
 			break;
 
@@ -628,7 +612,7 @@ int extraction(headerTar *head, char *namex, char *data) {
 	free(tv);
 
 	//Code de retour de extraction (évolutif, rajouter éventuellement des cas de return -1)
-	if (etat<0  || file<0 || writ<0 || etatuid<0 || etatgid<0 || sync<0 || utim<0) {
+	if (etat<0  || filed<0 || writ<0 || etatuid<0 || etatgid<0 || sync<0 || utim<0) {
 		return -1;
 	}
 

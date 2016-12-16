@@ -36,9 +36,8 @@ bool checkfile(char *filename) {
 	token_courant="";
 	token_suivant="";
 
-	//Faire taire ces warning unused
+	//Faire taire ce warning unused
 	MutexRead=(pthread_mutex_t) MutexRead;
-	MutexWrite=(pthread_mutex_t) MutexWrite;
 
 	//Test de l'existence d'un argument.
 	if (filename==NULL) {
