@@ -80,32 +80,32 @@
 
 * Lire la page de manuel de ptar sans manipulations/droits super-utilisateurs au préalable
 
-	   man ./manpage/ptar.1.gz
+	- man ./manpage/ptar.1.gz
 
 * Lire la page de manuel avec `man ptar`, nécessite d'avoir les droits super-utilisateurs
 
-	   sudo cp ./manpage/man.config /etc
-	   sudo mkdir -p /usr/local/man/man1/
-	   sudo install -g 0 -o 0 -m 0644 ./manpage/ptar.1.gz /usr/local/man/man1/
-	   man ptar
+	- sudo cp ./manpage/man.config /etc
+	- sudo mkdir -p /usr/local/man/man1/
+	- sudo install -g 0 -o 0 -m 0644 ./manpage/ptar.1.gz /usr/local/man/man1/
+	- man ptar
 
-	   (La commande `man ptar` devrait alors afficher la page man du bon programme
+	- (La commande `man ptar` devrait alors afficher la page man du bon programme
 	   et pas celle du programme ptar potentiellement préexistant "tar-like program written in perl")
 
 * Lire la page de manuel avec groff-utf8
 
-	   (Si nécessaire, télécharger le paquet groff-utf8, sinon passer à (***) )
- 	   wget http://www.haible.de/bruno/gnu/groff-utf8.tar.gz
-	   (C'est une archive tar non compressée à l'inverse de ce que laisse penser son extension !)
-	   tar xvf groff-utf8.tar.gz
- 	   cd groff-utf8
-	   make
-	   make install PREFIX=/usr/local
-	   (Veillez à vérifier que votre chemin $PREFIX/bin est contenu dans $PATH).
-	   cd <chemin/dossier/rs2016-Garcia-Zambaux>
-	   (***)
-	   tar -xvzf ./manpage/ptar.1.gz
-	   groff-utf8 -Tutf8 -mandoc ptar.1 | less
+	- (Si nécessaire, télécharger le paquet groff-utf8, sinon passer à (1) )
+ 	- wget http://www.haible.de/bruno/gnu/groff-utf8.tar.gz
+	- (C'est une archive tar non compressée à l'inverse de ce que laisse penser son extension !)
+	- tar xvf groff-utf8.tar.gz
+ 	- cd groff-utf8
+	- make
+	- make install PREFIX=/usr/local
+	- (Veillez à vérifier que votre chemin $PREFIX/bin est contenu dans $PATH).
+	- cd <chemin/dossier/rs2016-Garcia-Zambaux>
+	- (1)
+	- tar -xvzf ./manpage/ptar.1.gz
+	- groff-utf8 -Tutf8 -mandoc ptar.1 | less
 
 
 ###Bibliotheque dynamique : zlib
@@ -235,41 +235,40 @@
 
 ###Debug
 
-	Pour observer le code brute d'une fichier et son affichage
+ * Pour observer le code brute d'une fichier et son affichage
 
-		hexdump -C testfalsearch.tar
-		hexdump -C testf.tar
-		hexdump -C testall.tar
+	- hexdump -C testfalsearch.tar
+	- hexdump -C testf.tar
+	- hexdump -C testall.tar
 
-  Pour observer le contenu d'un .o (table des symboles)
+ * Pour observer le contenu d'un .o (table des symboles)
+ 
+ 	- nm main.o
+      	- nm utils.o
+      	- nm checkfile.o
 
-      nm main.o
-      nm utils.o
-      nm checkfile.o
+ * Pour voir les includes à la compilation, ajouter aux CFLAGS du Makefile
 
-  Pour voir les includes à la compilation, ajouter aux CFLAGS du Makefile
+	- -I<path>
 
-      -I<path>
+ * Pour déboguer avec GDB, il est préférable d'ajouter aux CFLAGS du Makefile (génère une table des symboles pour débug)
 
-  Pour déboguer avec GDB, il est préférable d'ajouter aux CFLAGS du Makefile (génère une table des symboles pour débug)
+      	- -g
 
-      -g
+ * Le fichier logfile.txt généré lors de l'extraction si l'option -e est spécifiée contient les codes de retours des fonctions utilisées pendant l'extraction. Générer un logfile lors de l'extraction/décompression d'une archive
 
-  Le fichier logfile.txt généré lors de l'extraction si l'option -e est spécifiée contient les codes de retours des fonctions utilisées pendant l'extraction.
-  Générer un logfile lors de l'extraction/décompression d'une archive
+    	- ./ptar -xzep 3 archive_test/testall.tar
 
-      ./ptar -xzep 3 archive_test/testall.tar
+ * Pour compter les threads utilisés dans le programme, lancer ce dans un terminal parallèle
 
-  Pour compter les threads utilisés dans le programme, lancer ce dans un terminal parallèle
+      	- ./countThreads
 
-      ./countThreads
+ * Pour compter le temps d'éxecution du programme, utiliser time
 
-  Pour compter le temps d'éxecution du programme, utiliser time
+     	- time ./ptar -lxzp 8 archive.tar.gz
 
-      time ./ptar -lxzp 8 archive.tar.gz
+ * Pour bien charger la bibliotheque dynamique, il faut parfois bien set la variable d'environnement LD_LIBRARY_PATH
 
-  Pour bien charger la bibliotheque dynamique, il faut parfois bien set la variable d'environnement LD_LIBRARY_PATH
+      	- export LD_LIBRARY_PATH=path_du_raccourci.so
 
-      export LD_LIBRARY_PATH=path_du_raccourci.so
-
-  ptar vérifie la somme de contrôle (checksum) des fichiers de l'archive, si l'un des éléments est corrompu, ptar termine et renvoie une erreur.
+ * ptar vérifie la somme de contrôle (checksum) des fichiers de l'archive, si l'un des éléments est corrompu, ptar termine et renvoie une erreur.
