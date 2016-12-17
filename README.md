@@ -45,8 +45,7 @@
 
 	   - `./ptar -e chemin/vers/archive`
 
-
-	* *Exemples :*
+* **Exemples :**
 
 	- Les options peuvent être combinées.
 	- L'exemple testf.tar fourni dans le git ne contient que des fichiers (dont un vide).
@@ -55,16 +54,16 @@
 	- Les exemples testf.tar.gz et testall.tar.gz sont les mêmes mais compressés au format gzip.
 	- Les exemples vice.tar et vice.tar.gz sont prévues pour déboguer le programme en le stressant.
 	- L'exemple bigarch.tar.gz est prévue pour tester le comportement de ptar sur une archive conséquente.
-	
-	- `./ptar archives_test/testall.tar
-	- ./ptar -x archive_test/testall.tar
-	- ./ptar -l archive_test/testall.tar
-	- ./ptar -xl archive_test/testall.tar
-	- ./ptar -z archive_test/testall.tar
-	- ./ptar -xz archive_test/testall.tar.gz
-	- ./ptar -zxl archive_test/testall.tar.gz
-	- ./ptar -xlp 3 archive_test/testall.tar
-	- ./ptar -xzlp 4 archive_test/testall.tar.gz`
+
+	- `./ptar archives_test/testall.tar`
+	- `./ptar -x archive_test/testall.tar`
+	- `./ptar -l archive_test/testall.tar`
+	- `./ptar -xl archive_test/testall.tar`
+	- `./ptar -z archive_test/testall.tar`
+	- `./ptar -xz archive_test/testall.tar.gz`
+	- `./ptar -zxl archive_test/testall.tar.gz`
+	- `./ptar -xlp 3 archive_test/testall.tar`
+	- `./ptar -xzlp 4 archive_test/testall.tar.gz`
 
 	- Exécuter le script rmtest.sh avant chaque test sur les archives pour nettoyer le dossier courant.
 	- `./rmtest.sh`
@@ -78,10 +77,10 @@
 
 * Lire la page de manuel avec `man ptar`, nécessite d'avoir les droits super-utilisateurs
 
-	- `sudo cp ./manpage/man.config /etc
-	- sudo mkdir -p /usr/local/man/man1/
-	- sudo install -g 0 -o 0 -m 0644 ./manpage/ptar.1.gz /usr/local/man/man1/
-	- man ptar`
+	- `sudo cp ./manpage/man.config /etc`
+	- `sudo mkdir -p /usr/local/man/man1/`
+	- `sudo install -g 0 -o 0 -m 0644 ./manpage/ptar.1.gz /usr/local/man/man1/`
+	- `man ptar`
 
 	- (La commande `man ptar` devrait alors afficher la page man du bon programme
 	   et pas celle du programme ptar potentiellement préexistant "tar-like program written in perl")
@@ -91,10 +90,10 @@
 	- (Si nécessaire, télécharger le paquet groff-utf8, sinon passer à (1) )
  	- `wget http://www.haible.de/bruno/gnu/groff-utf8.tar.gz`
 	- (C'est une archive tar non compressée à l'inverse de ce que laisse penser son extension !)
-	- `tar xvf groff-utf8.tar.gz
- 	- cd groff-utf8
-	- make
-	- make install PREFIX=/usr/local`
+	- `tar xvf groff-utf8.tar.gz`
+ 	- `cd groff-utf8`
+	- `make`
+	- `make install PREFIX=/usr/local`
 	- (Veillez à vérifier que votre chemin $PREFIX/bin est contenu dans $PATH).
 	- `cd chemin/dossier/rs2016-Garcia-Zambaux`
 	- (1) `tar -xvzf ./manpage/ptar.1.gz`
@@ -116,7 +115,7 @@
 
   * **Dernière Màj**
 
-  	16/12/2016    14:00     version 1.7.5.1 : Version stable de ptar rapide, bugs mineurs corrigés.
+  	**16/12/2016** \ \  14:00 \ \  **version 1.7.5.1** : *Version stable de ptar rapide, bugs mineurs corrigés.*
 
   * **Liste des corrections 1.7.0.0:**
 
@@ -230,19 +229,19 @@
 
 * **Pour observer le code brute d'une fichier et son affichage**
 
-	- `hexdump -C testfalsearch.tar
-	- hexdump -C testf.tar
-	- hexdump -C testall.tar`
+	- `hexdump -C testfalsearch.tar`
+	- `hexdump -C testf.tar`
+	- `hexdump -C testall.tar`
 
 * **Pour observer le contenu d'un .o (table des symboles)**
  
-	- `nm main.o
-	- nm utils.o
-	- nm checkfile.o`
+	- `nm main.o`
+	- `nm utils.o`
+	- `nm checkfile.o`
 
 * **Pour voir les includes à la compilation, ajouter aux CFLAGS du Makefile**
 
-	- -I<path>
+	- -I\<path\>
 
 * **Pour déboguer avec GDB, il est préférable d'ajouter aux CFLAGS du Makefile (génère une table des symboles pour débug)**
 
@@ -262,6 +261,6 @@
 
 * **Pour bien charger la bibliotheque dynamique, il faut parfois bien set la variable d'environnement LD_LIBRARY_PATH**
 
-- export LD_LIBRARY_PATH=path_du_raccourci.so
+	- `export LD_LIBRARY_PATH = <path_du_raccourci.so>`
 
 * **ptar vérifie la somme de contrôle (checksum) des fichiers de l'archive, si l'un des éléments est corrompu, ptar termine et renvoie une erreur.**
