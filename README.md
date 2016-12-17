@@ -23,27 +23,27 @@
 
 	* Lister les éléments contenus dans une archive tar
 
-	    ./ptar <chemin/vers/archive>
+	    - ./ptar <chemin/vers/archive>
 
 	* Extraire les éléments d'une archive tar (et listing basique)
 
-	    ./ptar -x <chemin/vers/archive>
+	    - ./ptar -x <chemin/vers/archive>
 
 	* Listing détaillé des métadonnées des éléments d'une archive tar
 
-	    ./ptar -l <chemin/vers/archive>
+	    - ./ptar -l <chemin/vers/archive>
 
 	* Parallélisation et durabilisation des écritures avec NBTHREADS threads
 
-	    ./ptar -p <NBTHREADS> <chemin/vers/archive>
+	    - ./ptar -p <NBTHREADS> <chemin/vers/archive>
 
 	* Décompression d'une archive .tar.gz (compressée avec gzip), gère le cas de header désordonnés
 
-	   ./ptar -z <chemin/vers/archive>
+	   - ./ptar -z <chemin/vers/archive>
 
 	* Générer un logfile (pour extraction & décompression) de divers codes retours, pour développeurs
 
-	   ./ptar -e <chemin/vers/archive>
+	   - ./ptar -e <chemin/vers/archive>
 
 
 	* Exemples :
@@ -112,11 +112,11 @@
 
   * Installer la zlib
 
-      sudo apt-get install zlibc zlib1g zlib1g-dev
+      - sudo apt-get install zlibc zlib1g zlib1g-dev
 
   * Configurer la variable LD_LIBRARY_PATH
 
-      export LD_LIBRARY_PATH=<path_du_raccourci_vers_zlib.so>
+      - export LD_LIBRARY_PATH=<path_du_raccourci_vers_zlib.so>
 
 
 ###Liste des corrections
@@ -206,7 +206,7 @@
         Ceci est tout de même hors des consignes du sujet.
       - L'archive 'vicieuse' d'essai archives_test/inc.tar a été encore améliorée.
 
- * Liste des corrections 1.7.4.0:
+  * Liste des corrections 1.7.4.0:
 
       - Une correction de bug majeur mis en évidence par le test blanc du 14/12/16 a été effectuée. En effet, ptar considérait
         que l'élément pointé par un lien symbolique devait forcément exister avant d'utiliser symlink() : c'était une erreur car
@@ -216,7 +216,7 @@
       - Le code a subi un nouveau léger nettoyage avant le dernier test blanc bonus et le release final.
       - L'archive vicieuse (renommée pour l'occasion) a encore été améliorée en vu du rodage du programme.
 
- * Liste des corrections 1.7.5.0:
+  * Liste des corrections 1.7.5.0:
 
       - Une correction de bug mineur/majeur rapporté par l'ultime test blanc a été corrigé. En effet le temps d'éxecution lors d'un
         multithreading était multiplié par 10 par rapport à une éxecution séquentielle. Ceci était dû à une mauvaise mutexation dans
@@ -226,7 +226,7 @@
       - Un autre problème dans le main a également été corrigé, tout n'était pas fermé dans le cas 'sans threads'. Cela devait
         sans doute causer d'éventuels bug ou problèmes sur certaines archives. (Notamment un core dump avec -e).
 
- * Liste des corrections 1.7.5.1:
+  * Liste des corrections 1.7.5.1:
 
       - Le code est amélioré : tous les éléments globaux sont désormais correctement fermés avant TOUTE sortie éventuelle de ptar.
       - Le forcing de la terminaison par '\0' des champs du header se fait désormais correctement.
