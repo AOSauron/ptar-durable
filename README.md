@@ -235,40 +235,40 @@
 
 ###Debug
 
- * Pour observer le code brute d'une fichier et son affichage
+* **Pour observer le code brute d'une fichier et son affichage**
 
 	- hexdump -C testfalsearch.tar
 	- hexdump -C testf.tar
 	- hexdump -C testall.tar
 
- * Pour observer le contenu d'un .o (table des symboles)
+* **Pour observer le contenu d'un .o (table des symboles)**
  
  	- nm main.o
       	- nm utils.o
       	- nm checkfile.o
 
- * Pour voir les includes à la compilation, ajouter aux CFLAGS du Makefile
+* **Pour voir les includes à la compilation, ajouter aux CFLAGS du Makefile**
 
 	- -I<path>
 
- * Pour déboguer avec GDB, il est préférable d'ajouter aux CFLAGS du Makefile (génère une table des symboles pour débug)
+* **Pour déboguer avec GDB, il est préférable d'ajouter aux CFLAGS du Makefile (génère une table des symboles pour débug)**
 
       	- -g
 
- * Le fichier logfile.txt généré lors de l'extraction si l'option -e est spécifiée contient les codes de retours des fonctions utilisées pendant l'extraction. Générer un logfile lors de l'extraction/décompression d'une archive
+* **Le fichier logfile.txt généré lors de l'extraction si l'option -e est spécifiée contient les codes de retours des fonctions utilisées pendant l'extraction. Générer un logfile lors de l'extraction/décompression d'une archive**
 
     	- ./ptar -xzep 3 archive_test/testall.tar
 
- * Pour compter les threads utilisés dans le programme, lancer ce dans un terminal parallèle
+* **Pour compter les threads utilisés dans le programme, lancer ce dans un terminal parallèle**
 
       	- ./countThreads
 
- * Pour compter le temps d'éxecution du programme, utiliser time
+* **Pour compter le temps d'éxecution du programme, utiliser time**
 
      	- time ./ptar -lxzp 8 archive.tar.gz
 
- * Pour bien charger la bibliotheque dynamique, il faut parfois bien set la variable d'environnement LD_LIBRARY_PATH
+* **Pour bien charger la bibliotheque dynamique, il faut parfois bien set la variable d'environnement LD_LIBRARY_PATH**
 
       	- export LD_LIBRARY_PATH=path_du_raccourci.so
 
- * ptar vérifie la somme de contrôle (checksum) des fichiers de l'archive, si l'un des éléments est corrompu, ptar termine et renvoie une erreur.
+* **ptar vérifie la somme de contrôle (checksum) des fichiers de l'archive, si l'un des éléments est corrompu, ptar termine et renvoie une erreur.**
