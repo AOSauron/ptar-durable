@@ -78,11 +78,11 @@
 
 ###Page de manuel ptar(1)
 
-	* Lire la page de manuel de ptar sans manipulations/droits super-utilisateurs au préalable
+* Lire la page de manuel de ptar sans manipulations/droits super-utilisateurs au préalable
 
 	   man ./manpage/ptar.1.gz
 
-	* Lire la page de manuel avec `man ptar`, nécessite d'avoir les droits super-utilisateurs
+* Lire la page de manuel avec `man ptar`, nécessite d'avoir les droits super-utilisateurs
 
 	   sudo cp ./manpage/man.config /etc
 	   sudo mkdir -p /usr/local/man/man1/
@@ -92,7 +92,7 @@
 	   (La commande `man ptar` devrait alors afficher la page man du bon programme
 	   et pas celle du programme ptar potentiellement préexistant "tar-like program written in perl")
 
-	* Lire la page de manuel avec groff-utf8
+* Lire la page de manuel avec groff-utf8
 
 	   (Si nécessaire, télécharger le paquet groff-utf8, sinon passer à (***) )
  	   wget http://www.haible.de/bruno/gnu/groff-utf8.tar.gz
