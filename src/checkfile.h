@@ -51,10 +51,11 @@ bool existeFile(char *file);
 
 
 /*
+[Cette fonction n'est plus utilisée depuis 1.7.4 : ptar ne crée plus l'élément pointé si il n'existe pas]
 Fonction pour les liens symboliques : reconstitue le chemin d'accès complet à partir du linkname du header
 et du pathname du lien symobolique.
 Retourne le chemin d'accès complet du fichier pointé par le lien symbolique. Il n'est pas nécessaire
-de récupérer le retour puisque
+de récupérer le retour puisque c'est *pathname qui est modifié.
 */
 
 char *recoverpath(char *linkname, char *pathlink, char pathname[]);

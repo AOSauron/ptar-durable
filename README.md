@@ -1,52 +1,52 @@
 #PTAR
 
-Extracteur durable et parallèle d'archives ustar POSIX
+**Extracteur durable et parallèle d'archives ustar POSIX**
 
-Projet de RS TELECOM Nancy 2016-2017
+*Projet de RS TELECOM Nancy 2016-2017*
 
-Auteurs
+* Auteurs
 
     GARCIA Guillaume
     ZAMBAUX Gauthier
 
-Dépendances
+* Dépendances
 
     zlibc zlib1g zlib1g-dev        (La bibliothèque zlib)
     groff-utf8                     (optionnel, pour ptar(1))
 
-Build & execute:
+* Build & execute:
 
     make
     ./ptar  [opts]  [args]
 
-Utilisation de ptar
+* Utilisation de ptar
 
-	Lister les éléments contenus dans une archive tar
+	* Lister les éléments contenus dans une archive tar
 
 	    ./ptar <chemin/vers/archive>
 
-	Extraire les éléments d'une archive tar (et listing basique)
+	* Extraire les éléments d'une archive tar (et listing basique)
 
 	    ./ptar -x <chemin/vers/archive>
 
-	Listing détaillé des métadonnées des éléments d'une archive tar
+	* Listing détaillé des métadonnées des éléments d'une archive tar
 
 	    ./ptar -l <chemin/vers/archive>
 
-	Parallélisation et durabilisation des écritures avec NBTHREADS threads
+	* Parallélisation et durabilisation des écritures avec NBTHREADS threads
 
 	    ./ptar -p <NBTHREADS> <chemin/vers/archive>
 
-	Décompression d'une archive .tar.gz (compressée avec gzip), gère le cas de header désordonnés
+	* Décompression d'une archive .tar.gz (compressée avec gzip), gère le cas de header désordonnés
 
 	   ./ptar -z <chemin/vers/archive>
 
-	Générer un logfile (pour extraction & décompression) de divers codes retours, pour développeurs
+	* Générer un logfile (pour extraction & décompression) de divers codes retours, pour développeurs
 
 	   ./ptar -e <chemin/vers/archive>
 
 
-	Exemples :
+	* Exemples :
 
 	    Les options peuvent être combinées.
 
@@ -78,11 +78,11 @@ Utilisation de ptar
 
 ###Page de manuel ptar(1)
 
-	Lire la page de manuel de ptar sans manipulations/droits super-utilisateurs au préalable
+	* Lire la page de manuel de ptar sans manipulations/droits super-utilisateurs au préalable
 
 	   man ./manpage/ptar.1.gz
 
-	Lire la page de manuel avec `man ptar`, nécessite d'avoir les droits super-utilisateurs
+	* Lire la page de manuel avec `man ptar`, nécessite d'avoir les droits super-utilisateurs
 
 	   sudo cp ./manpage/man.config /etc
 	   sudo mkdir -p /usr/local/man/man1/
@@ -92,7 +92,7 @@ Utilisation de ptar
 	   (La commande `man ptar` devrait alors afficher la page man du bon programme
 	   et pas celle du programme ptar potentiellement préexistant "tar-like program written in perl")
 
-	Lire la page de manuel avec groff-utf8
+	* Lire la page de manuel avec groff-utf8
 
 	   (Si nécessaire, télécharger le paquet groff-utf8, sinon passer à (***) )
  	   wget http://www.haible.de/bruno/gnu/groff-utf8.tar.gz
@@ -110,22 +110,22 @@ Utilisation de ptar
 
 ###Bibliotheque dynamique : zlib
 
-  Installer la zlib
+  * Installer la zlib
 
       sudo apt-get install zlibc zlib1g zlib1g-dev
 
-  Configurer la variable LD_LIBRARY_PATH
+  * Configurer la variable LD_LIBRARY_PATH
 
       export LD_LIBRARY_PATH=<path_du_raccourci_vers_zlib.so>
 
 
 ###Liste des corrections
 
-  Dernière Màj
+  * Dernière Màj
 
-  	16/12/2016    14:00     version 1.7.5.1 : Version stable de ptar rapide, bugs mineurs corrigés. 
+  	16/12/2016    14:00     version 1.7.5.1 : Version stable de ptar rapide, bugs mineurs corrigés.
 
-  Liste des corrections 1.7.0.0:
+  * Liste des corrections 1.7.0.0:
 
       - Les fonctions checkpath() et recoverpath() sont optimisées et améliorées, et devraient être
         stables à long terme. La fonction recoverpath() a été largement corrigée et optimisée.
@@ -139,7 +139,7 @@ Utilisation de ptar
         le write en entrée du pipe est bloquant ! Il faudra voir une version améliorée du programme (threads+décompression)
         dans une version supérieur (prévue pour 1.7.2.0).
 
-  Liste des corrections 1.7.0.1:
+  * Liste des corrections 1.7.0.1:
 
       - Les threads sont tous lancés et dans le bon nombre. En effet, une mauvaise utilisation de pthread_create conduisait
         à l'echec de la création mais le traitement se lançait toute de même (dans le thread principal). Aussi, un thread en
@@ -149,7 +149,7 @@ Utilisation de ptar
       - Optimisation de la compatibilité : on considère maintenant que si le champ typeflag contient un NUL (byte nul),
         il s'agit d'un fichier (typeflag='0') : voir tar(5).
 
-  Liste des corrections 1.7.1.0:
+  * Liste des corrections 1.7.1.0:
 
       - Les champs char du header ont une terminaison forcée par "\0", en effet il arrivait que certains champs fusionnent.
         C'était le cas du typeflag et du linkname dans certains cas (type=2 et link=5 => typeflag=25 apres strtol).
@@ -165,7 +165,7 @@ Utilisation de ptar
       - Une archive "vicieuse" a été construite sur la base des tests blancs pour vérifier la stabilité du programme.
         Il s'agit de inc.tar.
 
-  Liste des corrections 1.7.2.0:
+  * Liste des corrections 1.7.2.0:
 
       - Une archive corrompue a été ajoutée aux archives test pour vérifier la fiabilité du calcul du checksum.
       - La décompression n'est désormais plus indépendante de l'extraction : tout se fait en même temps.
@@ -183,7 +183,7 @@ Utilisation de ptar
         les éléments, amélioration de l'algorithme de traitement. Correction du main.
       - A voir pour des linkname en path absolu. Cela fonctionne étrangement meme pour des archives étrangères...
 
-  Liste des corrections 1.7.3.0:
+  * Liste des corrections 1.7.3.0:
 
       - Cette version a pour vocation d'être distribuée (au client par exemple).
       - Le dépôt sur la branche master a été nettoyé et rangé pour un release final propre. Les options de débug comme
@@ -206,7 +206,7 @@ Utilisation de ptar
         Ceci est tout de même hors des consignes du sujet.
       - L'archive 'vicieuse' d'essai archives_test/inc.tar a été encore améliorée.
 
-Liste des corrections 1.7.4.0:
+ * Liste des corrections 1.7.4.0:
 
       - Une correction de bug majeur mis en évidence par le test blanc du 14/12/16 a été effectuée. En effet, ptar considérait
         que l'élément pointé par un lien symbolique devait forcément exister avant d'utiliser symlink() : c'était une erreur car
@@ -216,7 +216,7 @@ Liste des corrections 1.7.4.0:
       - Le code a subi un nouveau léger nettoyage avant le dernier test blanc bonus et le release final.
       - L'archive vicieuse (renommée pour l'occasion) a encore été améliorée en vu du rodage du programme.
 
-Liste des corrections 1.7.5.0:
+ * Liste des corrections 1.7.5.0:
 
       - Une correction de bug mineur/majeur rapporté par l'ultime test blanc a été corrigé. En effet le temps d'éxecution lors d'un
         multithreading était multiplié par 10 par rapport à une éxecution séquentielle. Ceci était dû à une mauvaise mutexation dans
@@ -226,7 +226,7 @@ Liste des corrections 1.7.5.0:
       - Un autre problème dans le main a également été corrigé, tout n'était pas fermé dans le cas 'sans threads'. Cela devait
         sans doute causer d'éventuels bug ou problèmes sur certaines archives. (Notamment un core dump avec -e).
 
-Liste des corrections 1.7.5.1:
+ * Liste des corrections 1.7.5.1:
 
       - Le code est amélioré : tous les éléments globaux sont désormais correctement fermés avant TOUTE sortie éventuelle de ptar.
       - Le forcing de la terminaison par '\0' des champs du header se fait désormais correctement.
