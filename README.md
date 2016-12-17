@@ -6,44 +6,44 @@
 
 * Auteurs
 
-    GARCIA Guillaume
-    ZAMBAUX Gauthier
+  - GARCIA Guillaume
+  - ZAMBAUX Gauthier
 
 * Dépendances
 
-    zlibc zlib1g zlib1g-dev        (La bibliothèque zlib)
-    groff-utf8                     (optionnel, pour ptar(1))
+  - zlibc zlib1g zlib1g-dev        (La bibliothèque zlib)
+  - groff-utf8                     (optionnel, pour ptar(1))
 
 * Build & execute:
 
-    make
-    ./ptar  [opts]  [args]
+    - make
+    - ./ptar  [opts]  [args]
 
 * Utilisation de ptar
 
 	* Lister les éléments contenus dans une archive tar
 
-	    - ./ptar <chemin/vers/archive>
+	    - ./ptar chemin/vers/archive
 
 	* Extraire les éléments d'une archive tar (et listing basique)
 
-	    - ./ptar -x <chemin/vers/archive>
+	    - ./ptar -x chemin/vers/archive
 
 	* Listing détaillé des métadonnées des éléments d'une archive tar
 
-	    - ./ptar -l <chemin/vers/archive>
+	    - ./ptar -l chemin/vers/archive
 
 	* Parallélisation et durabilisation des écritures avec NBTHREADS threads
 
-	    - ./ptar -p <NBTHREADS> <chemin/vers/archive>
+	    - ./ptar -p NBTHREADS chemin/vers/archive
 
 	* Décompression d'une archive .tar.gz (compressée avec gzip), gère le cas de header désordonnés
 
-	   - ./ptar -z <chemin/vers/archive>
+	   - ./ptar -z chemin/vers/archive
 
 	* Générer un logfile (pour extraction & décompression) de divers codes retours, pour développeurs
 
-	   - ./ptar -e <chemin/vers/archive>
+	   - ./ptar -e chemin/vers/archive
 
 
 	* Exemples :
