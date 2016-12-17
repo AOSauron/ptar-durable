@@ -48,32 +48,32 @@
 
 	* Exemples :
 
-	    Les options peuvent être combinées.
+	    - Les options peuvent être combinées.
 
-	    L'exemple testf.tar fourni dans le git ne contient que des fichiers (dont un vide).
+	    - L'exemple testf.tar fourni dans le git ne contient que des fichiers (dont un vide).
 
-	    L'exemple testall.tar fourni dans le git contient des fichiers, des dossiers et un lien symbolique.
+	    - L'exemple testall.tar fourni dans le git contient des fichiers, des dossiers et un lien symbolique.
 
-	    L'exemple testfalsearch.tar fourni dans le git n'est pas une archive mais un fichier avec l'extension .tar.
+	    - L'exemple testfalsearch.tar fourni dans le git n'est pas une archive mais un fichier avec l'extension .tar.
 
-	    Les exemples testf.tar.gz et testall.tar.gz sont les mêmes mais compressés au format gzip.
+	    - Les exemples testf.tar.gz et testall.tar.gz sont les mêmes mais compressés au format gzip.
 
-      Les exemples vice.tar et vice.tar.gz sont prévues pour déboguer le programme en le stressant.
+      	    - Les exemples vice.tar et vice.tar.gz sont prévues pour déboguer le programme en le stressant.
 
-      L'exemple bigarch.tar.gz est prévue pour tester le comportement de ptar sur une archive conséquente.
+      	    - L'exemple bigarch.tar.gz est prévue pour tester le comportement de ptar sur une archive conséquente.
 
-	    ./ptar archives_test/testall.tar
-	    ./ptar -x archive_test/testall.tar
-	    ./ptar -l archive_test/testall.tar
-	    ./ptar -xl archive_test/testall.tar
-	    ./ptar -z archive_test/testall.tar
-	    ./ptar -xz archive_test/testall.tar.gz
-	    ./ptar -zxl archive_test/testall.tar.gz
-	    ./ptar -xlp 3 archive_test/testall.tar
-	    ./ptar -xzlp 4 archive_test/testall.tar.gz
+	    - ./ptar archives_test/testall.tar
+	    - ./ptar -x archive_test/testall.tar
+	    - ./ptar -l archive_test/testall.tar
+	    - ./ptar -xl archive_test/testall.tar
+	    - ./ptar -z archive_test/testall.tar
+	    - ./ptar -xz archive_test/testall.tar.gz
+	    - ./ptar -zxl archive_test/testall.tar.gz
+	    - ./ptar -xlp 3 archive_test/testall.tar
+	    - ./ptar -xzlp 4 archive_test/testall.tar.gz
 
-	    Exécuter le script rmtest.sh avant chaque test sur les archives pour nettoyer le dossier courant.
-	    ./rmtest.sh
+	    - Exécuter le script rmtest.sh avant chaque test sur les archives pour nettoyer le dossier courant.
+	    - ./rmtest.sh
 
 
 ###Page de manuel ptar(1)
@@ -102,7 +102,7 @@
 	- make
 	- make install PREFIX=/usr/local
 	- (Veillez à vérifier que votre chemin $PREFIX/bin est contenu dans $PATH).
-	- cd <chemin/dossier/rs2016-Garcia-Zambaux>
+	- cd chemin/dossier/rs2016-Garcia-Zambaux
 	- (1)
 	- tar -xvzf ./manpage/ptar.1.gz
 	- groff-utf8 -Tutf8 -mandoc ptar.1 | less
@@ -116,7 +116,7 @@
 
   * **Configurer la variable LD_LIBRARY_PATH**
 
-      - export LD_LIBRARY_PATH=<path_du_raccourci_vers_zlib.so>
+      - export LD_LIBRARY_PATH= path_du_raccourci_vers_zlib.so
 
 
 ###Liste des corrections
@@ -237,38 +237,38 @@
 
 * **Pour observer le code brute d'une fichier et son affichage**
 
-	- hexdump -C testfalsearch.tar
-	- hexdump -C testf.tar
-	- hexdump -C testall.tar
+- hexdump -C testfalsearch.tar
+- hexdump -C testf.tar
+- hexdump -C testall.tar
 
 * **Pour observer le contenu d'un .o (table des symboles)**
  
- 	- nm main.o
-      	- nm utils.o
-      	- nm checkfile.o
+- nm main.o
+- nm utils.o
+- nm checkfile.o
 
 * **Pour voir les includes à la compilation, ajouter aux CFLAGS du Makefile**
 
-	- -I<path>
+- -I<path>
 
 * **Pour déboguer avec GDB, il est préférable d'ajouter aux CFLAGS du Makefile (génère une table des symboles pour débug)**
 
-      	- -g
+- -g
 
 * **Le fichier logfile.txt généré lors de l'extraction si l'option -e est spécifiée contient les codes de retours des fonctions utilisées pendant l'extraction. Générer un logfile lors de l'extraction/décompression d'une archive**
 
-    	- ./ptar -xzep 3 archive_test/testall.tar
+- ./ptar -xzep 3 archive_test/testall.tar
 
 * **Pour compter les threads utilisés dans le programme, lancer ce dans un terminal parallèle**
 
-      	- ./countThreads
+- ./countThreads
 
 * **Pour compter le temps d'éxecution du programme, utiliser time**
 
-     	- time ./ptar -lxzp 8 archive.tar.gz
+- time ./ptar -lxzp 8 archive.tar.gz
 
 * **Pour bien charger la bibliotheque dynamique, il faut parfois bien set la variable d'environnement LD_LIBRARY_PATH**
 
-      	- export LD_LIBRARY_PATH=path_du_raccourci.so
+- export LD_LIBRARY_PATH=path_du_raccourci.so
 
 * **ptar vérifie la somme de contrôle (checksum) des fichiers de l'archive, si l'un des éléments est corrompu, ptar termine et renvoie une erreur.**
