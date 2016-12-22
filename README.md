@@ -1,6 +1,6 @@
 #PTAR
 
-**Extracteur durable et parallèle d'archives ustar POSIX**
+**PTAR - Extracteur d'archive tar USTAR durable et parallèle. Compatible USTAR Pax et UTF-8.**
 
 *Projet de RS TELECOM Nancy 2016-2017*
 
