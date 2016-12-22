@@ -57,37 +57,37 @@
 
 
   - `./ptar archives_test/testall.tar`
-    - *_Listing basique_ des éléments de l'archive tar.*
+    - _**Listing basique** des éléments de l'archive tar._
 
   - `./ptar -x archive_test/testall.tar`
-    - *_Listing basique_ et _extraction_ des éléments de l'archive tar.*
+    - _**Listing basique** et **extraction** des éléments de l'archive tar._
 
   - `./ptar -l archive_test/testall.tar`
-    - *_Listing détaillé_ des éléments de l'archive tar.*
+    - _**Listing détaillé** des éléments de l'archive tar._
 
   - `./ptar -xl archive_test/testall.tar`
-    - *_Listing détaillé_ et _extraction_ des éléments de l'archive tar.*
+    - _**Listing détaillé** et **extraction** des éléments de l'archive tar._
 
   - `./ptar -z archive_test/testall.tar.gz`
-    - *_Listing basique_ des éléments de l'archive tar._.gz_*
+    - _**Listing basique** des éléments de l'archive tar.**.gz**._
 
   - `./ptar -xz archive_test/testall.tar.gz`
-    - *_Listing basique_ et _extraction_ des éléments de l'archive tar._.gz_*
+    - _**Listing basique** et **extractio** des éléments de l'archive tar.**.gz**._
 
   - `./ptar -lz archive_test/testall.tar.gz`
-    - *_Listing détaillé_ des éléments de l'archive tar._.gz_*
+    - _**Listing détaillé** des éléments de l'archive tar.**.gz**._
 
   - `./ptar -zxl archive_test/testall.tar.gz`
-    - *_Listing détaillé_ et _extraction_ des éléments de l'archive tar_.gz_.*
+    - _**Listing détaillé** et **extraction** des éléments de l'archive tar**.gz**._
 
   - `./ptar -xp 8 archives_test/testall.tar`
-    - *_Listing basique_ et _extraction durable_ des éléments de l'archive tar sur 8 threads.*
+    - _**Listing basique** et **extraction durable** des éléments de l'archive tar sur 8 threads._
 
   - `./ptar -xlp 3 archive_test/testall.tar`
-    - *_Listing détaillé_ et _extraction durable_ des éléments de l'archive tar sur 3 threads.*
-    
+    - _**Listing détaillé** et **extraction durable** des éléments de l'archive tar sur 3 threads._
+
   - `./ptar -xzlp 4 archive_test/testall.tar.gz`
-    - *_Listing détaillé_ et _extraction durable_ des éléments de l'archive tar_.gz_ sur 4 threads.*
+    - _**Listing détaillé** et **extraction durable** des éléments de l'archive tar**.gz** sur 4 threads._
 
 
   - Exécuter le script rmtest.sh avant chaque test sur les archives pour nettoyer le dossier courant.
