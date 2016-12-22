@@ -33,7 +33,7 @@
 
 	    - `./ptar -l chemin/vers/archive`
 
-	* *Parallélisation et durabilisation des écritures avec NBTHREADS threads*
+	* *Parallélisation et durabilisation des écritures avec NBTHREADS threads POSIX*
 
 	    - `./ptar -p NBTHREADS chemin/vers/archive`
 
@@ -55,18 +55,20 @@
 	- Les exemples vice.tar et vice.tar.gz sont prévues pour déboguer le programme en le stressant.
 	- L'exemple bigarch.tar.gz est prévue pour tester le comportement de ptar sur une archive conséquente.
 
-	- `./ptar archives_test/testall.tar`
-	- `./ptar -x archive_test/testall.tar`
-	- `./ptar -l archive_test/testall.tar`
-	- `./ptar -xl archive_test/testall.tar`
-	- `./ptar -z archive_test/testall.tar`
-	- `./ptar -xz archive_test/testall.tar.gz`
-	- `./ptar -zxl archive_test/testall.tar.gz`
-	- `./ptar -xlp 3 archive_test/testall.tar`
-	- `./ptar -xzlp 4 archive_test/testall.tar.gz`
+	- `./ptar archives_test/testall.tar` => *_Listing basique_ des éléments de l'archive tar.*
+	- `./ptar -x archive_test/testall.tar` => *_Listing basique_ et _extraction_ des éléments de l'archive tar.*
+	- `./ptar -l archive_test/testall.tar` => *_Listing détaillé_ des éléments de l'archive tar.*
+	- `./ptar -xl archive_test/testall.tar` => *_Listing détaillé_ et _extraction_ des éléments de l'archive tar.*
+	- `./ptar -z archive_test/testall.tar.gz` => *_Listing basique_ des éléments de l'archive tar._.gz_*
+	- `./ptar -xz archive_test/testall.tar.gz` => *_Listing basique_ et _extraction_ des éléments de l'archive tar._.gz_*
+  - `./ptar -lz archive_test/testall.tar.gz` => *_Listing détaillé_ des éléments de l'archive tar._.gz_*
+	- `./ptar -zxl archive_test/testall.tar.gz` => *_Listing détaillé_ et _extraction_ des éléments de l'archive tar_.gz_.*
+  - `./ptar -xp 8 archives_test/testall.tar` => *_Listing basique_ et _extraction durable_ des éléments de l'archive tar sur 8 threads.*
+	- `./ptar -xlp 3 archive_test/testall.tar`=> *_Listing détaillé_ et _extraction durable_ des éléments de l'archive tar sur 3 threads.*
+	- `./ptar -xzlp 4 archive_test/testall.tar.gz` => *_Listing détaillé_ et _extraction durable_ des éléments de l'archive tar_.gz_ sur 4 threads.*
 
 	- Exécuter le script rmtest.sh avant chaque test sur les archives pour nettoyer le dossier courant.
-	- `./rmtest.sh`
+	 - `./rmtest.sh`
 
 
 ## Page de manuel ptar(1)
@@ -234,7 +236,7 @@
 	- `hexdump -C testall.tar`
 
 * **Pour observer le contenu d'un .o (table des symboles)**
- 
+
 	- `nm main.o`
 	- `nm utils.o`
 	- `nm checkfile.o`
