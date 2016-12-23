@@ -72,7 +72,7 @@
     - _**Listing basique** des éléments de l'archive tar.**.gz**._
 
   - `./ptar -xz archive_test/testall.tar.gz`
-    - _**Listing basique** et **extractio** des éléments de l'archive tar.**.gz**._
+    - _**Listing basique** et **extraction** des éléments de l'archive tar.**.gz**._
 
   - `./ptar -lz archive_test/testall.tar.gz`
     - _**Listing détaillé** des éléments de l'archive tar.**.gz**._
