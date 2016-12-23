@@ -1,6 +1,6 @@
-#PTAR
+# PTAR
 
-**Extracteur durable et parallèle d'archives ustar POSIX**
+**PTAR - Extracteur d'archive tar USTAR POSIX durable et parallèle. Compatible USTAR Pax et UTF-8.**
 
 *Projet de RS TELECOM Nancy 2016-2017*
 
@@ -33,7 +33,7 @@
 
 	    - `./ptar -l chemin/vers/archive`
 
-	* *Parallélisation et durabilisation des écritures avec NBTHREADS threads*
+	* *Parallélisation et durabilisation des écritures avec NBTHREADS threads POSIX*
 
 	    - `./ptar -p NBTHREADS chemin/vers/archive`
 
@@ -55,21 +55,46 @@
 	- Les exemples vice.tar et vice.tar.gz sont prévues pour déboguer le programme en le stressant.
 	- L'exemple bigarch.tar.gz est prévue pour tester le comportement de ptar sur une archive conséquente.
 
-	- `./ptar archives_test/testall.tar`
-	- `./ptar -x archive_test/testall.tar`
-	- `./ptar -l archive_test/testall.tar`
-	- `./ptar -xl archive_test/testall.tar`
-	- `./ptar -z archive_test/testall.tar`
-	- `./ptar -xz archive_test/testall.tar.gz`
-	- `./ptar -zxl archive_test/testall.tar.gz`
-	- `./ptar -xlp 3 archive_test/testall.tar`
-	- `./ptar -xzlp 4 archive_test/testall.tar.gz`
 
-	- Exécuter le script rmtest.sh avant chaque test sur les archives pour nettoyer le dossier courant.
-	- `./rmtest.sh`
+  - `./ptar archives_test/testall.tar`
+    - _**Listing basique** des éléments de l'archive tar._
+
+  - `./ptar -x archive_test/testall.tar`
+    - _**Listing basique** et **extraction** des éléments de l'archive tar._
+
+  - `./ptar -l archive_test/testall.tar`
+    - _**Listing détaillé** des éléments de l'archive tar._
+
+  - `./ptar -xl archive_test/testall.tar`
+    - _**Listing détaillé** et **extraction** des éléments de l'archive tar._
+
+  - `./ptar -z archive_test/testall.tar.gz`
+    - _**Listing basique** des éléments de l'archive tar.**.gz**._
+
+  - `./ptar -xz archive_test/testall.tar.gz`
+    - _**Listing basique** et **extraction** des éléments de l'archive tar.**.gz**._
+
+  - `./ptar -lz archive_test/testall.tar.gz`
+    - _**Listing détaillé** des éléments de l'archive tar.**.gz**._
+
+  - `./ptar -zxl archive_test/testall.tar.gz`
+    - _**Listing détaillé** et **extraction** des éléments de l'archive tar**.gz**._
+
+  - `./ptar -xp 8 archives_test/testall.tar`
+    - _**Listing basique** et **extraction durable** des éléments de l'archive tar sur 8 threads._
+
+  - `./ptar -xlp 3 archive_test/testall.tar`
+    - _**Listing détaillé** et **extraction durable** des éléments de l'archive tar sur 3 threads._
+
+  - `./ptar -xzlp 4 archive_test/testall.tar.gz`
+    - _**Listing détaillé** et **extraction durable** des éléments de l'archive tar**.gz** sur 4 threads._
 
 
-##Page de manuel ptar(1)
+  - Exécuter le script rmtest.sh avant chaque test sur les archives pour nettoyer le dossier courant.
+    - `./rmtest.sh`
+
+
+## Page de manuel ptar(1)
 
 * **Lire la page de manuel de ptar sans manipulations/droits super-utilisateurs au préalable**
 
@@ -100,7 +125,7 @@
 	- `groff-utf8 -Tutf8 -mandoc ptar.1 | less`
 
 
-##Bibliotheque dynamique : zlib
+## Bibliotheque dynamique : zlib
 
   * **Installer la zlib**
 
@@ -111,7 +136,7 @@
       - `export LD_LIBRARY_PATH= path_du_raccourci_vers_zlib.so`
 
 
-##Liste des corrections
+## Liste des corrections
 
   * **Dernière Màj**
 
@@ -225,7 +250,7 @@
 
 
 
-##Debug
+## Debug
 
 * **Pour observer le code brute d'une fichier et son affichage**
 
@@ -234,7 +259,7 @@
 	- `hexdump -C testall.tar`
 
 * **Pour observer le contenu d'un .o (table des symboles)**
- 
+
 	- `nm main.o`
 	- `nm utils.o`
 	- `nm checkfile.o`
