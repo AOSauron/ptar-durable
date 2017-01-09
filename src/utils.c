@@ -548,9 +548,9 @@ int extraction(headerTar *head, char *namex, char *data) {
 				if (logflag==1 && thrd==0) fprintf(logfile, "[Fichier %s] Code retour du write : %d\n", name, writ);
 
 				//Durabilité de l'écriture sur disque si option -p
-				if (thrd==1 && thrd==0) {
+				if (thrd==1) {
 					sync=fsync(filed);
-					if (logflag==1 && thrd==0) fprintf(logfile, "[Fichier %s] Code retour du fsync : %d\n", name, sync);
+					//if (logflag==1) fprintf(logfile, "[Fichier %s] Code retour du fsync : %d\n", name, sync);
 				}
 
 				//Libération de la mémoire allouée pour les données suivant le header.
