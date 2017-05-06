@@ -44,6 +44,11 @@
 	* *Générer un logfile (pour extraction & décompression) de divers codes retours, pour développeurs*
 
 	   - `./ptar -e chemin/vers/archive`
+	   
+* **Lancer la suite de test**
+
+	- Compiler les sources si ce n'est pas déjà fait avec `make`
+	- `make test`
 
 * **Exemples :**
 
@@ -69,16 +74,16 @@
     - _**Listing détaillé** et **extraction** des éléments de l'archive tar._
 
   - `./ptar -z archive_test/testall.tar.gz`
-    - _**Listing basique** des éléments de l'archive tar.**.gz**._
+    - _**Listing basique** des éléments de l'archive tar.**gz**._
 
   - `./ptar -xz archive_test/testall.tar.gz`
-    - _**Listing basique** et **extraction** des éléments de l'archive tar.**.gz**._
+    - _**Listing basique** et **extraction** des éléments de l'archive tar.**gz**._
 
   - `./ptar -lz archive_test/testall.tar.gz`
-    - _**Listing détaillé** des éléments de l'archive tar.**.gz**._
+    - _**Listing détaillé** des éléments de l'archive tar.**gz**._
 
   - `./ptar -zxl archive_test/testall.tar.gz`
-    - _**Listing détaillé** et **extraction** des éléments de l'archive tar**.gz**._
+    - _**Listing détaillé** et **extraction** des éléments de l'archive tar.**gz**._
 
   - `./ptar -xp 8 archives_test/testall.tar`
     - _**Listing basique** et **extraction durable** des éléments de l'archive tar sur 8 threads._
@@ -87,7 +92,7 @@
     - _**Listing détaillé** et **extraction durable** des éléments de l'archive tar sur 3 threads._
 
   - `./ptar -xzlp 4 archive_test/testall.tar.gz`
-    - _**Listing détaillé** et **extraction durable** des éléments de l'archive tar**.gz** sur 4 threads._
+    - _**Listing détaillé** et **extraction durable** des éléments de l'archive tar.**gz** sur 4 threads._
 
 
   - Exécuter le script rmtest.sh avant chaque test sur les archives pour nettoyer le dossier courant.
