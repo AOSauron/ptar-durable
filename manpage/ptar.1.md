@@ -22,7 +22,7 @@
 
 
   * -l
-            Listing  détaillé.  Par  défault,  ptar  n'affiche  que  les noms des répertoires et fichiers. Avec
+            - Listing  détaillé.  Par  défault,  ptar  n'affiche  que  les noms des répertoires et fichiers. Avec
             l'option -l, ptar affiche, séparés par un espace à chaque fois:
              - les permissions sous la forme drwxr-xr-x (comme dans la sortie de ls -l)
              - l'uid et le gid du fichier, sous la forme 1001/1001
@@ -33,15 +33,15 @@
 
 
   * -p NBTHREADS
-            Utilise NBTHREADS threads pour réaliser les écritures en parallèle.
+            - Utilise NBTHREADS threads pour réaliser les écritures en parallèle.
 
   * -z
-            L'archive passée en paramètre est compressée avec gzip; demande à ptar de la décompresser avant  de
+            - L'archive passée en paramètre est compressée avec gzip; demande à ptar de la décompresser avant  de
             la  traiter.  ptar  chargera  dynamiquement  la  bibliothèque  zlib (avec dlopen) pour effectuer la
             décompression.
 
   * -e
-            Option pour développeurs, génère un logfile dans le répertoire courant  contenant  les  valeurs  de
+            - Option pour développeurs, génère un logfile dans le répertoire courant  contenant  les  valeurs  de
             retour des diverses fonctions utilisées (notemment pendant l'extraction).
 
        Toutes les options peuvent être combinées.
@@ -61,4 +61,4 @@
 
 
 
-1.0.0.0  &nbsp;&nbsp;&nbsp;&nbsp;&nbsp;2016-10-23                                     &nbsp;&nbsp; &nbsp;&nbsp;&nbsp;PTAR(1)
+1.0.0.0  &nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;2016-10-23                 &nbsp;&nbsp;&nbsp;&nbsp; &nbsp;&nbsp;&nbsp;PTAR(1)
