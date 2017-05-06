@@ -22,7 +22,7 @@
 * **Documentation**
 
   - Pour des détails plus précis sur notre programme et sa conception, veuillez consulter notre [rapport de projet au format PDF](docs/rapport.pdf).
-  - Vous pouvez également consulter la page de manuel [ptar(1)](## Page de manuel ptar(1)).
+  - Vous pouvez également consulter la page de manuel [ptar(1)](manpage/ptar.1.md).
 
 * **Utilisation de ptar**
 
@@ -54,6 +54,7 @@
 
 	- Compiler les sources si ce n'est pas déjà fait avec `make`
 	- `make test`
+  - Pour nettoyer le dossier courant lancez `make clean`
 
 * **Exemples :**
 
