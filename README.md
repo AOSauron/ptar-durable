@@ -19,6 +19,11 @@
     - `make`
     - `./ptar  [opts]  [args]`
 
+* **Documentation**
+
+  - Pour des détails plus précis sur notre programme et sa conception, veuillez consulter notre [rapport de projet au format PDF](docs/rapport.pdf).
+  - Vous pouvez également consulter la page de manuel [ptar(1)](## Page de manuel ptar(1)).
+
 * **Utilisation de ptar**
 
 	* *Lister les éléments contenus dans une archive tar*
@@ -44,7 +49,7 @@
 	* *Générer un logfile (pour extraction & décompression) de divers codes retours, pour développeurs*
 
 	   - `./ptar -e chemin/vers/archive`
-	   
+
 * **Lancer la suite de test**
 
 	- Compiler les sources si ce n'est pas déjà fait avec `make`
@@ -95,8 +100,8 @@
     - _**Listing détaillé** et **extraction durable** des éléments de l'archive tar.**gz** sur 4 threads._
 
 
-  - Exécuter le script rmtest.sh avant chaque test sur les archives pour nettoyer le dossier courant.
-    - `./rmtest.sh`
+  - Exécuter le script rmtest.sh avant chaque test sur les archives pour nettoyer le dossier courant :
+    - `make clean`
 
 
 ## Page de manuel ptar(1)
@@ -107,6 +112,7 @@
 
 * **Lire la page de manuel avec `man ptar`, nécessite d'avoir les droits super-utilisateurs**
 
+  - Faites une sauvegarde de votre config man : `sudo mv /etc/man.config /etc/man.config.save`
 	- `sudo cp ./manpage/man.config /etc`
 	- `sudo mkdir -p /usr/local/man/man1/`
 	- `sudo install -g 0 -o 0 -m 0644 ./manpage/ptar.1.gz /usr/local/man/man1/`
@@ -283,7 +289,7 @@
 
 * **Pour compter les threads utilisés dans le programme, lancer ce dans un terminal parallèle**
 
-	- `./countThreads`
+	- `./scripts/countThreads`
 
 * **Pour compter le temps d'éxecution du programme, utiliser time**
 

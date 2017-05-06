@@ -24,3 +24,4 @@ rm *.fifo
 rm trace
 
 rm -rf modules/
+rm éçàtest\"
